@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>BG Broker — Mini App (MVP)</title>
+<title>BG Broker — Mini App (CSV v2)</title>
 <link rel="icon" href="data:,">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <style>
@@ -15,53 +15,38 @@
     --container:960px;
   }
   @media (min-width: 768px){ :root{ --fs-15:16px; --fs-18:20px; --fs-20:22px; } }
-
   html,body{height:100%}
-  body{
-    margin:0;background:var(--bg);color:var(--text);
-    font: var(--fs-15)/1.5 system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-    -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-
+  body{margin:0;background:var(--bg);color:var(--text);font:var(--fs-15)/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial;
+       -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;padding-bottom:env(safe-area-inset-bottom)}
   .wrap{max-width:var(--container);margin:0 auto;padding:0 var(--s3)}
   header{padding:calc(var(--s3) + env(safe-area-inset-top)) var(--s3) var(--s3);border-bottom:1px solid var(--border)}
   h1{margin:0 0 var(--s1);font-size:var(--fs-18);color:var(--accent)}
   .muted{color:var(--muted);font-size:var(--fs-13)}
-
   .tabs{display:flex;gap:var(--s1);margin:var(--s2) 0;flex-wrap:wrap}
   .tab{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#1a2030;cursor:pointer;user-select:none}
   .tab.active{background:var(--accent);color:#08120e;border-color:transparent}
-
   .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:var(--s3);margin:var(--s2) 0}
   label{display:block;margin:var(--s2) 0 var(--s1);font-weight:600}
-  input,button,select,textarea{font:inherit}
-  input,select,textarea{width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--input);color:var(--text)}
+  input,button{font:inherit}
+  input{width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--input);color:var(--text)}
   input::placeholder{color:#7f8797}
   .btn{display:inline-block;background:var(--accent);color:#08120e;border:0;border-radius:var(--radius-sm);padding:12px 16px;font-weight:700;cursor:pointer;min-width:44px;min-height:44px}
   .btn:active{transform:translateY(1px)}
   .note{font-size:var(--fs-12);color:var(--muted)}
-
   .list .item{padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin:var(--s1) 0;background:var(--input)}
-  .good{color:#3ecf8e}.warn{color:#ffce57}.bad{color:#ff7b7b}
-
   .row{display:grid;grid-template-columns:1fr;gap:var(--s2)}
-  @media (min-width: 768px){ .row{grid-template-columns:1fr 1fr} }
-
-  @media (max-width: 480px){ h1{font-size:var(--fs-16)} .btn{width:100%} }
-
+  @media (min-width:768px){ .row{grid-template-columns:1fr 1fr} }
+  @media (max-width:480px){ h1{font-size:var(--fs-16)} .btn{width:100%} }
   @media (prefers-color-scheme: light){
     :root{ --bg:#f7f8fb; --card:#ffffff; --text:#0c0d10; --muted:#5f6674; --border:#e6e8ee; --input:#ffffff; }
-    .tab{background:#f1f3f8}
-    .tab.active{color:#ffffff}
-    input,select,textarea{background:#fff}
+    .tab{background:#f1f3f8}.tab.active{color:#ffffff} input{background:#fff}
   }
 </style>
 </head>
 <body>
 <header class="wrap">
-  <h1>BG Broker — мини-аппа (тест)</h1>
-  <div class="muted">Вставьте ссылку на закупку — ИИ спрогнозирует участников/победителя на основе истории. Историю грузим во вкладке «Админ».</div>
+  <h1>BG Broker — мини-аппа</h1>
+  <div class="muted">Вставьте ссылку на закупку → прогноз участников/победителя. История загружается во вкладке «Админ».</div>
 </header>
 
 <main class="wrap" style="padding-bottom:calc(var(--s4) + env(safe-area-inset-bottom))">
@@ -71,43 +56,44 @@
     <button class="tab" data-tab="admin" role="tab" aria-selected="false">Админ</button>
   </div>
 
-  <!-- ВКЛАДКА 1: ЗАКУПКА -->
-  <section class="card" id="predict" role="tabpanel" aria-labelledby="Закупка">
+  <!-- Закупка -->
+  <section class="card" id="predict" role="tabpanel">
     <label>Ссылка на закупку (ЕИС 44-ФЗ / 223-ФЗ)</label>
     <input id="tenderUrl" placeholder="https://zakupki.gov.ru/..." inputmode="url" />
     <div style="margin-top:var(--s2);display:flex;gap:var(--s2);flex-wrap:wrap">
       <button class="btn" id="analyze">Анализ</button>
-      <span class="note">Данные заказчика/ОКПД2/суммы подтягиваются автоматически из истории (в проде — из API ЕИС).</span>
+      <span class="note">Контекст закупки подтянем через ЕИС API позже; пока используем частоты побед по закону и общий рейтинг.</span>
     </div>
     <div id="outPredict" class="list" aria-live="polite" style="margin-top:var(--s2)"></div>
   </section>
 
-  <!-- ВКЛАДКА 2: ВСЕ ЗАКУПКИ (сегодня) -->
-  <section class="card" id="browse" style="display:none" role="tabpanel" aria-labelledby="Все закупки">
+  <!-- Все закупки -->
+  <section class="card" id="browse" style="display:none" role="tabpanel">
     <div class="row">
       <div>
-        <label>Фильтр по заказчику (опционально)</label>
-        <input id="fltCustomer" placeholder="Начните вводить название заказчика" />
+        <label>Фильтр по рег. номеру</label>
+        <input id="fltReg" placeholder="Напр.: 0818500000825..." />
       </div>
       <div>
-        <label>Фильтр по ОКПД2/предмету (опционально)</label>
-        <input id="fltOkpd" placeholder="Код или слово" />
+        <label>Фильтр по закону</label>
+        <input id="fltLaw" placeholder="44-ФЗ или 223-ФЗ" />
       </div>
     </div>
-    <button class="btn" id="browseBtn" style="margin-top:var(--s2)">Показать сегодняшние закупки с определившимися победителями</button>
-    <div class="note" style="margin-top:var(--s1)">Берём записи с датой = сегодня. У каждой компании указываем ИНН. Участники — из поля <code>participants</code> в истории.</div>
+    <button class="btn" id="browseBtn" style="margin-top:var(--s2)">Показать закупки с победителями</button>
+    <div class="note" style="margin-top:var(--s1)">Источник — загруженный CSV. У каждой компании выводим ИНН, почту, ФИО и телефон ЛПРа.</div>
     <div id="outBrowse" class="list" aria-live="polite" style="margin-top:var(--s2)"></div>
   </section>
 
-  <!-- ВКЛАДКА 3: АДМИН -->
-  <section class="card" id="admin" style="display:none" role="tabpanel" aria-labelledby="Админ">
+  <!-- Админ -->
+  <section class="card" id="admin" style="display:none" role="tabpanel">
     <h3 style="margin-top:0">Загрузка истории и обучение ИИ</h3>
     <div class="row">
       <div>
-        <label>Загрузить историю (CSV)</label>
+        <label>Загрузить историю (CSV, 7 колонок в таком порядке)</label>
         <input type="file" id="csv" accept=".csv" />
-        <div class="note">Колонки: <b>supplier,supplier_inn,customer,customer_inn,okpd,region,amount,date,participants</b><br>
-        Пример participants: <code>ООО «Альфа»|7700000000;ООО «Бета»|7800000000</code></div>
+        <div class="note">
+          1) company · 2) inn · 3) reg_number · 4) law · 5) winner_email · 6) dmr_name · 7) dmr_phone
+        </div>
       </div>
       <div>
         <label>Статус модели</label>
@@ -120,140 +106,108 @@
       <button class="btn" id="clear">Очистить историю</button>
     </div>
     <div class="note" style="margin-top:var(--s2)">
-      Примечание: API ЕИС подключим позже (нет токена). Модуль ИИ уже готов к работе с внешним источником — сейчас он учится на загруженной истории.
+      ЕИС API подключим позже (нужен токен). Модель уже обучается на загруженном CSV и учитывает частоты побед по 44/223-ФЗ.
     </div>
   </section>
 </main>
 
 <script>
-/* Телеграм-инициализация */
 try{ Telegram.WebApp.ready(); Telegram.WebApp.expand(); }catch(e){}
 
-/* ===== Хранилище и утилиты ===== */
-const store = {
-  rows: [],        // исторические записи
-  model: null,     // обученная модель (простая скоринговая)
-  version: null
-};
+/* ===== Внутреннее хранилище ===== */
+const store = { rows: [], model: null, version: null };
 
-function todayISO(){
-  const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth()+1).padStart(2,'0');
-  const day = String(d.getDate()).padStart(2,'0');
-  return `${y}-${m}-${day}`;
+/* ===== CSV-парсинг (позиции колонок!) ===== */
+function parseCSV7cols(text){
+  // Берём ровно 7 столбцов по порядку; без заголовка — ожидаем строки данных сразу
+  // Если у тебя есть заголовок строкой — просто оставь его вверху, мы попытаемся распознать по количеству колонок
+  const lines = text.trim().split(/\r?\n/).filter(Boolean);
+  const rows = [];
+  for(const l of lines){
+    const cols = l.split(','); // простой split: для CSV с кавычками/запятыми внутри понадобится полноценный парсер
+    if(cols.length < 7) continue;
+    const [company, inn, reg_number, law, winner_email, dmr_name, dmr_phone] = cols.map(x=>x.trim());
+    rows.push({ company, inn, reg_number, law, winner_email, dmr_name, dmr_phone });
+  }
+  return rows;
 }
 
-function parseCSV(text){
-  const lines = text.trim().split(/\r?\n/);
-  const headers = lines.shift().split(',').map(h=>h.trim());
-  return lines.filter(Boolean).map(l=>{
-    // простой split по запятой; для «сложного» CSV нужен отдельный парсер
-    const cols = l.split(',').map(c=>c.trim());
-    const obj = {}; headers.forEach((h,i)=>obj[h]=cols[i]||'');
-    return obj;
-  });
-}
-
-/* ===== ИИ-ассистент (заглушка с «самообучением») =====
-   Идея: считаем частоты побед поставщиков по (customer, okpd, region) и типичному масштабу.
-   Затем используем эти статистики в скоринге.
-*/
+/* ===== ИИ-модель (MVP): частоты побед по закону + общий рейтинг ===== */
 function trainModel(rows){
-  const bySupplier = {};
+  const bySupplier = {};          // по компании
+  const byLawSupplier = {};       // по паре (law, company)
+
   rows.forEach(r=>{
-    const s = r.supplier||'';
-    if(!s) return;
-    const okpd = r.okpd||'';
-    const cust = r.customer||'';
-    const reg  = r.region||'';
-    const amt  = Number(r.amount||0)||0;
+    const c = r.company||'';
+    const law = (r.law||'').toUpperCase();
+    if(!c) return;
 
-    bySupplier[s] = bySupplier[s]||{
-      supplier:s, supplier_inn:r.supplier_inn||'',
-      winsTotal:0, byCustomer:{}, byOkpd:{}, byRegion:{}, amounts:[]
-    };
-    bySupplier[s].winsTotal += 1;
-    bySupplier[s].byCustomer[cust] = (bySupplier[s].byCustomer[cust]||0)+1;
-    bySupplier[s].byOkpd[okpd]     = (bySupplier[s].byOkpd[okpd]||0)+1;
-    bySupplier[s].byRegion[reg]    = (bySupplier[s].byRegion[reg]||0)+1;
-    if(amt) bySupplier[s].amounts.push(amt);
+    bySupplier[c] = (bySupplier[c]||{wins:0, inn:r.inn||'', email:r.winner_email||'', dmr:r.dmr_name||'', phone:r.dmr_phone||''});
+    bySupplier[c].wins++;
+
+    const key = law+'|'+c;
+    byLawSupplier[key] = (byLawSupplier[key]||0) + 1;
   });
 
-  const model = { suppliers:Object.values(bySupplier) };
-  model.suppliers.forEach(s=>{
-    if(s.amounts.length){
-      s.avgAmount = s.amounts.reduce((a,b)=>a+b,0)/s.amounts.length;
-    } else { s.avgAmount = null; }
-  });
-  return model;
+  return { bySupplier, byLawSupplier };
 }
 
-function scoreWithModel(model, ctx){
-  // ctx: {customer, okpd, region, amount}
-  const scored = model.suppliers.map(s=>{
-    let score = 0; const reasons=[];
-    const cHits = s.byCustomer[ctx.customer]||0;
-    if(cHits>0){ score += 3; reasons.push(`Победы у этого заказчика (${cHits})`); }
-    const oHits = s.byOkpd[ctx.okpd]||0;
-    if(oHits>0){ score += 2; reasons.push(`Опыт по предмету/ОКПД2 (${oHits})`); }
-    const rHits = s.byRegion[ctx.region]||0;
-    if(rHits>0){ score += 1; reasons.push(`Работают в регионе`); }
-    if(s.avgAmount && ctx.amount){
-      const rel = Math.abs(ctx.amount - s.avgAmount)/s.avgAmount;
-      if(rel<=0.5){ score += 1; reasons.push(`Сумма в типичном диапазоне (${Math.round(s.avgAmount).toLocaleString('ru-RU')} ₽)`); }
-    }
-    return { supplier:s.supplier, supplier_inn:s.supplier_inn||'—', score, reasons };
-  }).sort((a,b)=>b.score-a.score);
-  return scored;
+/* ===== Вспомогательное: извлечение regNumber и угадывание закона из URL ===== */
+function extractRegNumber(url){
+  try{ const u=new URL(url); return u.searchParams.get('regNumber')||'' }catch(e){ return '' }
+}
+function guessLawFromUrl(url){
+  // очень грубо: если в ссылке встречается 44фз/223фз — вернём это
+  const s = url.toLowerCase();
+  if(s.includes('44-фз') || s.includes('44fz') || s.includes('law44')) return '44-ФЗ';
+  if(s.includes('223-фз') || s.includes('223fz') || s.includes('law223')) return '223-ФЗ';
+  return ''; // неизвестно — будем ранжировать по общему рейтингу
 }
 
-/* ===== Демо-данные (с INN и участниками) ===== */
-const demo = `supplier,supplier_inn,customer,customer_inn,okpd,region,amount,date,participants
-ООО "СтройКрафт",7734567890,ГУП "Чувашгаз",2123456789,42.21.22.130,Чувашская Республика,299809000,2023-09-15,ООО "ЭнергоПроект"|7700000000;ООО "ГидроМонтаж"|7733333333
-ООО "ТеплоСервис",7711111111,МУП "Теплосети Алатыря",2133333333,42.21.22.130,Чувашская Республика,75467000,${todayISO()},ООО "ИнжСтрой"|7722222222;ООО "ЭнергоПроект"|7700000000
-ООО "ИнжСтрой",7722222222,Администрация г. Алатырь,2144444444,43.29.11.110,Чувашская Республика,56000000,${todayISO()},ООО "ТеплоСервис"|7711111111
-ООО "ЭнергоПроект",7700000000,ГУП "Чувашгаз",2123456789,42.21.22.130,Чувашская Республика,180000000,2024-04-02,ООО "СтройКрафт"|7734567890
-ООО "ГидроМонтаж",7733333333,Администрация г. Алатырь,2144444444,42.21.22.130,Чувашская Республика,92000000,2023-07-09,ООО "СтройКрафт"|7734567890
-`;
-
-/* ===== Админ: загрузка и обучение ===== */
+/* ===== Админ: загрузка/обучение/очистка ===== */
 function updateModelInfo(){
-  const el = document.getElementById('modelInfo');
   const n = store.rows.length;
   const v = store.version || '—';
-  el.innerHTML = `<div class="item">Исторических записей: <b>${n}</b><br>Версия модели: <b>${v}</b></div>`;
+  document.getElementById('modelInfo').innerHTML =
+    `<div class="item">Исторических записей: <b>${n}</b><br>Версия модели: <b>${v}</b></div>`;
 }
 
+document.getElementById('csv').addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const text = await f.text();
+  store.rows = parseCSV7cols(text);
+  store.model = trainModel(store.rows);
+  store.version = 'csv-'+Date.now();
+  updateModelInfo();
+  alert('CSV загружен: '+store.rows.length+' записей. Модель обучена.');
+});
+
 document.getElementById('loadDemo').onclick = ()=>{
-  store.rows = parseCSV(demo);
+  const demo = [
+    'ООО "СтройКрафт",7734567890,0818500000825001001,44-ФЗ,info@stroikraft.ru,Иванов И.И.,+7 900 000-00-01',
+    'ООО "ТеплоСервис",7711111111,0818500000825002002,44-ФЗ,hello@teplo.ru,Петров П.П.,+7 900 000-00-02',
+    'ООО "ИнжСтрой",7722222222,0818500000825003003,223-ФЗ,mail@inz.ru,Сидоров С.С.,+7 900 000-00-03',
+    'ООО "ЭнергоПроект",7700000000,0818500000825004004,44-ФЗ,office@energo.pro,Кузнецов К.К.,+7 900 000-00-04',
+    'ООО "ГидроМонтаж",7733333333,0818500000825005005,223-ФЗ,contact@hydro.ru,Смирнов С.С.,+7 900 000-00-05',
+    'ООО "СтройКрафт",7734567890,0818500000825006006,44-ФЗ,info@stroikraft.ru,Иванов И.И.,+7 900 000-00-01'
+  ].join('\n');
+  store.rows = parseCSV7cols(demo);
   store.model = trainModel(store.rows);
   store.version = 'demo-1';
   updateModelInfo();
   alert('Загружены демо-данные и обучена модель.');
 };
 
-document.getElementById('csv').addEventListener('change', async (e)=>{
-  const f = e.target.files[0]; if(!f) return;
-  const text = await f.text();
-  const rows = parseCSV(text);
-  store.rows = rows;
-  store.model = trainModel(rows);
-  store.version = 'local-' + Date.now();
-  updateModelInfo();
-  alert('CSV загружен: '+rows.length+' записей. Модель обучена.');
-});
-
 document.getElementById('train').onclick = ()=>{
-  if(!store.rows.length){ alert('Сначала загрузите историю (CSV) или демо-данные.'); return; }
+  if(!store.rows.length){ alert('Сначала загрузите CSV.'); return; }
   store.model = trainModel(store.rows);
-  store.version = 'retrain-' + Date.now();
+  store.version = 'retrain-'+Date.now();
   updateModelInfo();
   alert('Переобучение завершено.');
 };
 
 document.getElementById('clear').onclick = ()=>{
-  store.rows = []; store.model = null; store.version = null;
+  store.rows=[]; store.model=null; store.version=null;
   updateModelInfo();
   alert('История и модель очищены.');
 };
@@ -262,113 +216,70 @@ updateModelInfo();
 /* ===== Вкладки ===== */
 document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click',()=>{
-    document.querySelectorAll('.tab').forEach(x=>{
-      x.classList.remove('active'); x.setAttribute('aria-selected','false');
-    });
+    document.querySelectorAll('.tab').forEach(x=>{x.classList.remove('active');x.setAttribute('aria-selected','false')});
     t.classList.add('active'); t.setAttribute('aria-selected','true');
-    const id = t.dataset.tab;
+    const id=t.dataset.tab;
     ['predict','browse','admin'].forEach(sec=>{
       document.getElementById(sec).style.display = (sec===id)?'block':'none';
     });
   });
 });
 
-/* ===== Анализ закупки (вкладка «Закупка») ===== */
-function extractRegNumber(url){ try{ const u = new URL(url); return u.searchParams.get('regNumber')||''; }catch(e){ return ''; } }
-
+/* ===== Анализ закупки (прогноз по ссылке) ===== */
 document.getElementById('analyze').onclick = ()=>{
   const url = document.getElementById('tenderUrl').value.trim();
   if(!url){ alert('Вставьте ссылку на закупку.'); return; }
-  if(!store.model || !store.rows.length){
-    alert('Нет данных для анализа. Загрузите историю во вкладке «Админ».');
-    return;
-  }
-  const reg = extractRegNumber(url);
-  // Эвристика: ищем ближайшие по истории признаки (заказчик/окпд/регион/сумма).
-  // В проде эти поля подтянем из API ЕИС по regNumber.
-  // Пока пытаемся «угадать» по тексту URL и самой частой связке в истории.
-  const guess = {
-    customer: topByField('customer'),
-    okpd: topByField('okpd'),
-    region: topByField('region'),
-    amount: medianAmount()
-  };
+  if(!store.model || !store.rows.length){ alert('Нет данных. Загрузите CSV во вкладке «Админ».'); return; }
 
-  function topByField(field){
-    const cnt = {};
-    store.rows.forEach(r=>{ const v = r[field]||''; if(!v) return; cnt[v] = (cnt[v]||0)+1; });
-    return Object.entries(cnt).sort((a,b)=>b[1]-a[1])[0]?.[0] || '';
-  }
-  function medianAmount(){
-    const arr = store.rows.map(r=>Number(r.amount||0)).filter(Boolean).sort((a,b)=>a-b);
-    if(!arr.length) return 0;
-    const m = Math.floor(arr.length/2);
-    return arr.length%2?arr[m]:(arr[m-1]+arr[m])/2;
-  }
+  const reg = extractRegNumber(url) || '—';
+  const lawGuess = guessLawFromUrl(url); // пусто, если не смогли угадать
 
-  const ctx = {
-    customer: guess.customer,
-    okpd: guess.okpd,
-    region: guess.region,
-    amount: Number(guess.amount)||0
-  };
-  const ranked = scoreWithModel(store.model, ctx).slice(0,5);
+  // Рейтинг компаний: если знаем закон — по частотам wins(law, company), иначе общий wins(company)
+  const items = Object.entries(store.model.bySupplier).map(([company,meta])=>{
+    const winsLaw = lawGuess ? (store.model.byLawSupplier[(lawGuess.toUpperCase()+'|'+company)]||0) : 0;
+    const score = lawGuess ? (winsLaw*2 + meta.wins*0.5) : meta.wins; // при известном законе — сильнее вес
+    return { company, inn:meta.inn||'—', email:meta.email||'—', dmr:meta.dmr||'—', phone:meta.phone||'—', wins:meta.wins, winsLaw, score };
+  }).sort((a,b)=>b.score-a.score).slice(0,5);
 
   const out = document.getElementById('outPredict'); out.innerHTML='';
   const head = document.createElement('div');
   head.className='item';
-  head.innerHTML = `<b>Закупка:</b> ${reg || url}<br>
-  <span class="muted">Авто-контекст (MVP): заказчик — <b>${ctx.customer||'—'}</b>, ОКПД2 — <b>${ctx.okpd||'—'}</b>, регион — <b>${ctx.region||'—'}</b>, масштаб ≈ <b>${Number(ctx.amount).toLocaleString('ru-RU')} ₽</b></span>`;
+  head.innerHTML = `<b>Закупка:</b> ${reg}<br><span class="muted">Закон (угаданный по ссылке): <b>${lawGuess||'—'}</b>. Источник прогноза — частоты побед из загруженной истории.</span>`;
   out.appendChild(head);
 
-  if(!ranked.length){
-    const div = document.createElement('div');
-    div.className='item'; div.textContent = 'Недостаточно истории для прогноза. Загрузите больше данных во вкладке «Админ».';
-    out.appendChild(div); return;
-  }
-  ranked.forEach((it,i)=>{
-    const why = it.reasons.length ? it.reasons.join('; ') : 'Косвенные признаки по истории побед и предмету.';
-    const rank = i===0 ? '<b class="good">— прогноз победителя</b>' : '';
+  if(!items.length){ out.innerHTML += '<div class="item">Недостаточно данных для прогноза.</div>'; return; }
+
+  items.forEach((it,i)=>{
+    const rank = i===0 ? '<b style="color:#3ecf8e">— прогноз победителя</b>' : '';
+    const why = lawGuess ? `Побед в ${lawGuess}: ${it.winsLaw}, всего побед: ${it.wins}` : `Всего побед: ${it.wins}`;
     const div = document.createElement('div');
     div.className='item';
-    div.innerHTML = `<b>${i+1}. ${it.supplier}</b> (ИНН: ${it.supplier_inn}) ${rank}<br><span class="muted">${why}</span>`;
+    div.innerHTML = `<b>${i+1}. ${it.company}</b> (ИНН: ${it.inn}) ${rank}<br>
+      <span class="muted">${why}</span><br>
+      <span class="note">Контакты: ${it.email} · ${it.dmr} · ${it.phone}</span>`;
     out.appendChild(div);
   });
 };
 
-/* ===== Все закупки: сегодняшний список с победителями и участниками (с ИНН) ===== */
+/* ===== Все закупки (список с победителями и ИНН) ===== */
 document.getElementById('browseBtn').onclick = ()=>{
-  if(!store.rows.length){ alert('Сначала загрузите историю во вкладке «Админ».'); return; }
-  const c = document.getElementById('fltCustomer').value.trim().toLowerCase();
-  const k = document.getElementById('fltOkpd').value.trim().toLowerCase();
-  const today = todayISO();
+  if(!store.rows.length){ alert('Сначала загрузите CSV во вкладке «Админ».'); return; }
+  const fltReg = document.getElementById('fltReg').value.trim().toLowerCase();
+  const fltLaw = document.getElementById('fltLaw').value.trim().toUpperCase();
+  let data = store.rows.slice();
 
-  // Сегодняшние закупки (по дате)
-  let data = store.rows.filter(r=> (r.date||'').slice(0,10)===today );
-
-  // Фильтры
-  data = data.filter(r =>
-    (!c || (r.customer||'').toLowerCase().includes(c)) &&
-    (!k || (r.okpd||'').toLowerCase().includes(k))
-  );
+  if(fltReg) data = data.filter(r=> (r.reg_number||'').toLowerCase().includes(fltReg));
+  if(fltLaw) data = data.filter(r=> (r.law||'').toUpperCase().includes(fltLaw));
 
   const out = document.getElementById('outBrowse'); out.innerHTML='';
-  if(!data.length){ out.innerHTML = '<div class="item">На сегодня подходящих записей не найдено.</div>'; return; }
+  if(!data.length){ out.innerHTML = '<div class="item">Ничего не найдено под фильтры.</div>'; return; }
 
-  data.forEach((r,i)=>{
-    const parts = String(r.participants||'').split(';').map(s=>s.trim()).filter(Boolean);
-    const partsHtml = parts.length ? parts.map(p=>{
-      const [nm,inn] = p.split('|').map(x=>x?.trim()||'');
-      return `<span>${nm||'—'} (ИНН: ${inn||'—'})</span>`;
-    }).join(', ') : '—';
-
+  data.slice(0,100).forEach((r,i)=>{
     const div = document.createElement('div');
     div.className='item';
-    div.innerHTML = `
-      <b>${i+1}. ${r.customer||'—'}</b> — победитель: <b>${r.supplier||'—'}</b> (ИНН: ${r.supplier_inn||'—'})<br>
-      <span class="muted">ОКПД2: ${r.okpd||'—'} | Регион: ${r.region||'—'} | Сумма: ${Number(r.amount||0).toLocaleString('ru-RU')} ₽ | Дата: ${r.date||'—'}</span><br>
-      <span class="note">Участники: ${partsHtml}</span>
-    `;
+    div.innerHTML = `<b>${i+1}. Закупка ${r.reg_number||'—'} (${(r.law||'').toUpperCase()||'—'})</b><br>
+      Победитель: <b>${r.company||'—'}</b> (ИНН: ${r.inn||'—'})<br>
+      <span class="note">Контакты: ${r.winner_email||'—'} · ${r.dmr_name||'—'} · ${r.dmr_phone||'—'}</span>`;
     out.appendChild(div);
   });
 };
