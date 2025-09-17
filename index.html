@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>BG Broker — Mini App (cloud sync + remember admin)</title>
+<title>BG Broker — Mini App (export/import + remember admin)</title>
 <link rel="icon" href="data:,">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -32,6 +32,7 @@
   input::placeholder{color:#7f8797}
   .btn{display:inline-block;background:var(--accent);color:#08120e;border:0;border-radius:var(--radius-sm);padding:12px 16px;font-weight:700;cursor:pointer;min-width:44px;min-height:44px}
   .btn:active{transform:translateY(1px)}
+  .btn.gray{background:#5f6674;color:#fff}
   .note{font-size:var(--fs-12);color:var(--muted)}
   .list .item{padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin:var(--s1) 0;background:var(--input)}
   .good{color:#3ecf8e}
@@ -86,7 +87,7 @@
 
   <!-- Админ -->
   <section class="card" id="admin" style="display:none" role="tabpanel">
-    <h3 style="margin-top:0">Загрузка истории, обучение и облачная синхронизация</h3>
+    <h3 style="margin-top:0">Загрузка истории и обучение</h3>
 
     <div class="row">
       <div>
@@ -103,27 +104,24 @@
     <div style="margin-top:var(--s2);display:flex;gap:var(--s2);flex-wrap:wrap">
       <button class="btn" id="loadDemo">Загрузить демо-данные</button>
       <button class="btn" id="train">Переобучить</button>
-      <button class="btn" id="clear">Очистить историю</button>
+      <button class="btn gray" id="clear">Очистить историю</button>
     </div>
 
-    <h3 style="margin-top:var(--s4)">Облако (JSONBin)</h3>
+    <h3 style="margin-top:var(--s4)">Перенос между устройствами (без облака)</h3>
     <div class="row">
       <div>
-        <label>Bin ID</label>
-        <input id="binId" placeholder="например: 66f0a1e0abcd1234abcd" />
+        <label>Экспорт модели и данных</label>
+        <button class="btn" id="exportBtn">Скачать bg-model.json</button>
+        <div class="note">Сохраните файл, а на другом устройстве используйте «Импорт».</div>
       </div>
       <div>
-        <label>Master Key</label>
-        <input id="binKey" placeholder="X-Master-Key из профиля JSONBin" />
+        <label>Импорт модели и данных</label>
+        <input type="file" id="importFile" accept=".json" />
+        <div class="note">Выберите ранее сохранённый файл <code>bg-model.json</code>.</div>
       </div>
     </div>
-    <div class="note" style="margin-top:6px">Сохранится объект: <code>{ rows, model, version }</code>. Доступные кнопки ниже.</div>
-    <div style="margin-top:var(--s2);display:flex;gap:var(--s2);flex-wrap:wrap">
-      <button class="btn" id="cloudLoad">Загрузить из облака</button>
-      <button class="btn" id="cloudSave">Сохранить в облако</button>
-    </div>
 
-    <div class="note" style="margin-top:var(--s2)">ЕИС API подключим позже. Модель хранится локально (в браузере) и может синхронизироваться через JSONBin для работы на разных устройствах.</div>
+    <div class="note" style="margin-top:var(--s2)">Модель хранится локально в браузере. Экспорт/импорт позволяет перенести её на другое устройство без использования облака.</div>
   </section>
 </main>
 
@@ -136,7 +134,7 @@
     <label class="inline"><input type="checkbox" id="pwdRemember"> Запомнить пароль на этом устройстве</label>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
       <button class="btn" id="pwdOk">Войти</button>
-      <button class="btn" id="pwdCancel" style="background:#5f6674;color:#fff">Отмена</button>
+      <button class="btn gray" id="pwdCancel">Отмена</button>
     </div>
   </div>
 </div>
@@ -145,10 +143,9 @@
 try{ Telegram.WebApp.ready(); Telegram.WebApp.expand(); }catch(e){}
 
 /* ===== Ключи хранилища ===== */
-const LS_KEY = 'bg_miniapp_store_v1';
-const LS_ADMIN = 'bg_admin_persist';     // флаг «запомнить пароль»
-const SS_ADMIN = 'bg_admin_unlocked';    // флаг «разрешён на сессию»
-const LS_BIN   = 'bg_miniapp_jsonbin';   // {id,key}
+const LS_KEY   = 'bg_miniapp_store_v1';
+const LS_ADMIN = 'bg_admin_persist';     // «запомнить пароль»
+const SS_ADMIN = 'bg_admin_unlocked';    // доступ на сессию
 
 /* ===== Состояние ===== */
 const store = { rows: [], model: null, version: null };
@@ -181,7 +178,7 @@ function loadFromLocal(){
   return false;
 }
 
-/* ===== Чтение файла (UTF-8/CP1251) ===== */
+/* ===== Чтение CSV (UTF-8/CP1251) ===== */
 async function readFileSmart(file){
   const buf = await file.arrayBuffer();
   let text = new TextDecoder('utf-8',{fatal:false}).decode(new Uint8Array(buf));
@@ -191,8 +188,6 @@ async function readFileSmart(file){
   }
   return text;
 }
-
-/* ===== CSV-парсинг ===== */
 function parseCSVFlexible(text){
   const res = Papa.parse(text,{ delimiter:"", newline:"", quoteChar:'"', escapeChar:'"', header:false, skipEmptyLines:"greedy",
     transform: (val)=> (val==null?"":String(val)) });
@@ -218,7 +213,7 @@ function parseCSVFlexible(text){
   return rows;
 }
 
-/* ===== Модель ===== */
+/* ===== Модель (частоты побед) ===== */
 function trainModel(rows){
   const bySupplier={}, byLawSupplier={};
   rows.forEach(r=>{
@@ -238,12 +233,6 @@ function updateModelInfo(){
 (function bootstrap(){
   const ok = loadFromLocal();
   updateModelInfo();
-  // восстановить сохранённые облачные реквизиты
-  try{
-    const b = JSON.parse(localStorage.getItem(LS_BIN)||'{}');
-    if(b.id) document.getElementById('binId').value = b.id;
-    if(b.key) document.getElementById('binKey').value = b.key;
-  }catch(e){}
   // авто-разблокировка админки, если «запомнить пароль» включали
   if(localStorage.getItem(LS_ADMIN)==='1'){
     sessionStorage.setItem(SS_ADMIN,'1');
@@ -291,45 +280,28 @@ document.getElementById('clear').onclick=()=>{
   alert('История и модель очищены (локально).');
 };
 
-/* ===== Облако (JSONBin) ===== */
-function getBinCreds(){
-  const id = document.getElementById('binId').value.trim();
-  const key = document.getElementById('binKey').value.trim();
-  if(!id || !key){ alert('Заполните Bin ID и Master Key.'); return null; }
-  // запомним реквизиты
-  localStorage.setItem(LS_BIN, JSON.stringify({id, key}));
-  return {id, key};
+/* ===== Экспорт / Импорт ===== */
+function downloadJSON(filename, data){
+  const blob = new Blob([JSON.stringify(data)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href=url; a.download=filename; a.click();
+  URL.revokeObjectURL(url);
 }
-async function cloudSave(){
-  const creds = getBinCreds(); if(!creds) return;
-  if(!store.model || !store.rows.length){ alert('Нет данных для сохранения. Сначала обучите модель или загрузите CSV.'); return; }
-  const url = `https://api.jsonbin.io/v3/b/${encodeURIComponent(creds.id)}`;
-  const body = { rows: store.rows, model: store.model, version: store.version };
-  const r = await fetch(url, {
-    method:'PUT',
-    headers:{
-      'Content-Type':'application/json',
-      'X-Master-Key': creds.key
-    },
-    body: JSON.stringify(body)
-  });
-  if(!r.ok){ alert('Ошибка сохранения в облако: '+r.status); return; }
-  alert('Сохранено в облако (JSONBin). Теперь эти данные доступны на любом устройстве.');
-}
-async function cloudLoad(){
-  const creds = getBinCreds(); if(!creds) return;
-  const url = `https://api.jsonbin.io/v3/b/${encodeURIComponent(creds.id)}/latest`;
-  const r = await fetch(url, { headers:{ 'X-Master-Key': creds.key } });
-  if(!r.ok){ alert('Ошибка загрузки из облака: '+r.status); return; }
-  const json = await r.json();
-  const data = json?.record || {};
-  if(!Array.isArray(data.rows) || !data.model){ alert('В бине не найдено нужных данных.'); return; }
-  store.rows = data.rows; store.model = data.model; store.version = data.version || 'cloud';
-  saveToLocal(); updateModelInfo();
-  alert('Загружено из облака. Модель сохранена локально.');
-}
-document.getElementById('cloudSave').onclick = cloudSave;
-document.getElementById('cloudLoad').onclick = cloudLoad;
+document.getElementById('exportBtn').onclick = ()=>{
+  if(!store.model || !store.rows.length){ alert('Нет данных для экспорта.'); return; }
+  downloadJSON('bg-model.json', { rows: store.rows, model: store.model, version: store.version });
+};
+document.getElementById('importFile').addEventListener('change', async (e)=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const text = await f.text();
+    const data = JSON.parse(text);
+    if(!Array.isArray(data.rows) || !data.model){ alert('Файл не содержит нужных данных.'); return; }
+    store.rows = data.rows; store.model = data.model; store.version = data.version || 'import';
+    saveToLocal(); updateModelInfo();
+    alert('Импорт завершён. Модель сохранена локально.');
+  }catch(err){ alert('Ошибка чтения файла: '+err.message); }
+});
 
 /* ===== Вкладки + пароль ===== */
 const modal = document.getElementById('pwdModal');
@@ -386,7 +358,7 @@ document.getElementById('analyze').addEventListener('click', ()=>{
   const out=document.getElementById('outPredict'); out.innerHTML='';
   const head=document.createElement('div');
   head.className='item';
-  head.innerHTML=`<b>Закупка:</b> ${escapeHTML(reg)}<br><span class="muted">Закон (угадан по ссылке): <b>${escapeHTML(lawGuess||'—')}</b>. Источник прогноза — частоты побед из истории (модель может грузиться из облака).</span>`;
+  head.innerHTML=`<b>Закупка:</b> ${escapeHTML(reg)}<br><span class="muted">Закон (угадан по ссылке): <b>${escapeHTML(lawGuess||'—')}</b>. Источник прогноза — частоты побед из истории.</span>`;
   out.appendChild(head);
 
   if(!items.length){ out.innerHTML+='<div class="item">Недостаточно данных для прогноза.</div>'; return; }
