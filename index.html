@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>BG Broker — Mini App (persist + admin)</title>
+<title>BG Broker — Mini App (cloud sync + remember admin)</title>
 <link rel="icon" href="data:,">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -42,10 +42,11 @@
     :root{ --bg:#f7f8fb; --card:#fff; --text:#0c0d10; --muted:#5f6674; --border:#e6e8ee; --input:#fff }
     .tab{background:#f1f3f8}.tab.active{color:#fff}
   }
-  /* Мини-модал для пароля */
+  /* Модалка пароля */
   .modal{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:10}
   .modal .box{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:16px;max-width:360px;width:calc(100% - 32px)}
   .modal .box h3{margin:0 0 8px}
+  .inline{display:flex;align-items:center;gap:8px;margin-top:8px}
 </style>
 </head>
 <body>
@@ -83,9 +84,10 @@
     <div id="outBrowse" class="list" aria-live="polite" style="margin-top:var(--s2)"></div>
   </section>
 
-  <!-- Админ (защищено паролем) -->
+  <!-- Админ -->
   <section class="card" id="admin" style="display:none" role="tabpanel">
-    <h3 style="margin-top:0">Загрузка истории и обучение ИИ</h3>
+    <h3 style="margin-top:0">Загрузка истории, обучение и облачная синхронизация</h3>
+
     <div class="row">
       <div>
         <label>Загрузить историю (CSV, 7 колонок по порядку)</label>
@@ -97,12 +99,31 @@
         <div id="modelInfo" class="list"><div class="item">Исторических записей: 0<br>Версия модели: —</div></div>
       </div>
     </div>
+
     <div style="margin-top:var(--s2);display:flex;gap:var(--s2);flex-wrap:wrap">
       <button class="btn" id="loadDemo">Загрузить демо-данные</button>
       <button class="btn" id="train">Переобучить</button>
       <button class="btn" id="clear">Очистить историю</button>
     </div>
-    <div class="note" style="margin-top:var(--s2)">ЕИС API подключим позже (нужен токен). Модель обучается на CSV и сохраняется в браузере.</div>
+
+    <h3 style="margin-top:var(--s4)">Облако (JSONBin)</h3>
+    <div class="row">
+      <div>
+        <label>Bin ID</label>
+        <input id="binId" placeholder="например: 66f0a1e0abcd1234abcd" />
+      </div>
+      <div>
+        <label>Master Key</label>
+        <input id="binKey" placeholder="X-Master-Key из профиля JSONBin" />
+      </div>
+    </div>
+    <div class="note" style="margin-top:6px">Сохранится объект: <code>{ rows, model, version }</code>. Доступные кнопки ниже.</div>
+    <div style="margin-top:var(--s2);display:flex;gap:var(--s2);flex-wrap:wrap">
+      <button class="btn" id="cloudLoad">Загрузить из облака</button>
+      <button class="btn" id="cloudSave">Сохранить в облако</button>
+    </div>
+
+    <div class="note" style="margin-top:var(--s2)">ЕИС API подключим позже. Модель хранится локально (в браузере) и может синхронизироваться через JSONBin для работы на разных устройствах.</div>
   </section>
 </main>
 
@@ -112,6 +133,7 @@
     <h3>Доступ к разделу «Админ»</h3>
     <div class="note" style="margin-bottom:8px">Введите пароль, чтобы открыть админ-панель.</div>
     <input id="pwdInput" type="password" placeholder="Пароль" />
+    <label class="inline"><input type="checkbox" id="pwdRemember"> Запомнить пароль на этом устройстве</label>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px">
       <button class="btn" id="pwdOk">Войти</button>
       <button class="btn" id="pwdCancel" style="background:#5f6674;color:#fff">Отмена</button>
@@ -120,13 +142,15 @@
 </div>
 
 <script>
-/* Telegram init */
 try{ Telegram.WebApp.ready(); Telegram.WebApp.expand(); }catch(e){}
 
-/* ===== Хранилище ===== */
+/* ===== Ключи хранилища ===== */
 const LS_KEY = 'bg_miniapp_store_v1';
-const SS_ADMIN = 'bg_admin_unlocked';
+const LS_ADMIN = 'bg_admin_persist';     // флаг «запомнить пароль»
+const SS_ADMIN = 'bg_admin_unlocked';    // флаг «разрешён на сессию»
+const LS_BIN   = 'bg_miniapp_jsonbin';   // {id,key}
 
+/* ===== Состояние ===== */
 const store = { rows: [], model: null, version: null };
 
 /* ===== Утилиты ===== */
@@ -138,12 +162,11 @@ function guessLawFromUrl(url){
   return '';
 }
 function clean(s){ return (s??'').replace(/\u00A0/g,' ').replace(/\s+/g,' ').replace(/\uFFFD/g,'').trim(); }
-function escapeHTML(s){ return clean(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&gt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function escapeHTML(s){ return clean(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 
-/* ==== Persist ==== */
+/* ===== Persist (локально) ===== */
 function saveToLocal(){
-  const payload = { rows: store.rows, model: store.model, version: store.version };
-  localStorage.setItem(LS_KEY, JSON.stringify(payload));
+  localStorage.setItem(LS_KEY, JSON.stringify({ rows: store.rows, model: store.model, version: store.version }));
 }
 function loadFromLocal(){
   const raw = localStorage.getItem(LS_KEY);
@@ -151,9 +174,7 @@ function loadFromLocal(){
   try{
     const data = JSON.parse(raw);
     if(data && Array.isArray(data.rows)){
-      store.rows = data.rows;
-      store.model = data.model || null;
-      store.version = data.version || null;
+      store.rows = data.rows; store.model = data.model || null; store.version = data.version || null;
       return true;
     }
   }catch(e){}
@@ -164,15 +185,14 @@ function loadFromLocal(){
 async function readFileSmart(file){
   const buf = await file.arrayBuffer();
   let text = new TextDecoder('utf-8',{fatal:false}).decode(new Uint8Array(buf));
-  const bad = (text.match(/\uFFFD/g)||[]).length;
-  const cyr = (text.match(/[А-Яа-яЁё]/g)||[]).length;
+  const bad=(text.match(/\uFFFD/g)||[]).length, cyr=(text.match(/[А-Яа-яЁё]/g)||[]).length;
   if(bad>0 || cyr===0){
     try{ text = new TextDecoder('windows-1251',{fatal:false}).decode(new Uint8Array(buf)); }catch(e){}
   }
   return text;
 }
 
-/* ===== Parser CSV (любой разделитель, 7 колонок) ===== */
+/* ===== CSV-парсинг ===== */
 function parseCSVFlexible(text){
   const res = Papa.parse(text,{ delimiter:"", newline:"", quoteChar:'"', escapeChar:'"', header:false, skipEmptyLines:"greedy",
     transform: (val)=> (val==null?"":String(val)) });
@@ -198,7 +218,7 @@ function parseCSVFlexible(text){
   return rows;
 }
 
-/* ===== Модель (частоты побед) ===== */
+/* ===== Модель ===== */
 function trainModel(rows){
   const bySupplier={}, byLawSupplier={};
   rows.forEach(r=>{
@@ -209,19 +229,24 @@ function trainModel(rows){
   });
   return {bySupplier,byLawSupplier};
 }
-
-/* ===== UI helpers ===== */
 function updateModelInfo(){
   const n=store.rows.length, v=store.version||'—';
   document.getElementById('modelInfo').innerHTML=`<div class="item">Исторических записей: <b>${n}</b><br>Версия модели: <b>${v}</b></div>`;
 }
 
-/* ====== Загрузка из localStorage при старте ====== */
+/* ===== Bootstrap ===== */
 (function bootstrap(){
   const ok = loadFromLocal();
   updateModelInfo();
-  if(ok && store.rows.length){
-    console.log('Loaded model from localStorage:', store.version, store.rows.length);
+  // восстановить сохранённые облачные реквизиты
+  try{
+    const b = JSON.parse(localStorage.getItem(LS_BIN)||'{}');
+    if(b.id) document.getElementById('binId').value = b.id;
+    if(b.key) document.getElementById('binKey').value = b.key;
+  }catch(e){}
+  // авто-разблокировка админки, если «запомнить пароль» включали
+  if(localStorage.getItem(LS_ADMIN)==='1'){
+    sessionStorage.setItem(SS_ADMIN,'1');
   }
 })();
 
@@ -234,11 +259,9 @@ document.getElementById('csv').addEventListener('change', async (e)=>{
   store.rows = parsed;
   store.model = trainModel(parsed);
   store.version = 'csv-'+Date.now();
-  saveToLocal();
-  updateModelInfo();
+  saveToLocal(); updateModelInfo();
   alert('CSV загружен: '+store.rows.length+' записей. Модель обучена и сохранена.');
 });
-
 document.getElementById('loadDemo').onclick=()=>{
   const demo = [
     'ООО "СтройКрафт",7734567890,0818500000825001001,44-ФЗ,info@stroikraft.ru,Иванов И.И.,+7 900 000-00-01',
@@ -251,40 +274,75 @@ document.getElementById('loadDemo').onclick=()=>{
   store.rows = parseCSVFlexible(demo);
   store.model = trainModel(store.rows);
   store.version='demo-1';
-  saveToLocal();
-  updateModelInfo();
+  saveToLocal(); updateModelInfo();
   alert('Демо-данные загружены. Модель обучена и сохранена.');
 };
-
 document.getElementById('train').onclick=()=>{
   if(!store.rows.length){ alert('Сначала загрузите CSV.'); return; }
   store.model=trainModel(store.rows);
   store.version='retrain-'+Date.now();
-  saveToLocal();
-  updateModelInfo();
+  saveToLocal(); updateModelInfo();
   alert('Переобучение завершено. Модель сохранена.');
 };
-
 document.getElementById('clear').onclick=()=>{
   store.rows=[]; store.model=null; store.version=null;
   localStorage.removeItem(LS_KEY);
   updateModelInfo();
-  alert('История и модель очищены (включая localStorage).');
+  alert('История и модель очищены (локально).');
 };
 
-/* ===== Вкладки + пароль на админ ===== */
+/* ===== Облако (JSONBin) ===== */
+function getBinCreds(){
+  const id = document.getElementById('binId').value.trim();
+  const key = document.getElementById('binKey').value.trim();
+  if(!id || !key){ alert('Заполните Bin ID и Master Key.'); return null; }
+  // запомним реквизиты
+  localStorage.setItem(LS_BIN, JSON.stringify({id, key}));
+  return {id, key};
+}
+async function cloudSave(){
+  const creds = getBinCreds(); if(!creds) return;
+  if(!store.model || !store.rows.length){ alert('Нет данных для сохранения. Сначала обучите модель или загрузите CSV.'); return; }
+  const url = `https://api.jsonbin.io/v3/b/${encodeURIComponent(creds.id)}`;
+  const body = { rows: store.rows, model: store.model, version: store.version };
+  const r = await fetch(url, {
+    method:'PUT',
+    headers:{
+      'Content-Type':'application/json',
+      'X-Master-Key': creds.key
+    },
+    body: JSON.stringify(body)
+  });
+  if(!r.ok){ alert('Ошибка сохранения в облако: '+r.status); return; }
+  alert('Сохранено в облако (JSONBin). Теперь эти данные доступны на любом устройстве.');
+}
+async function cloudLoad(){
+  const creds = getBinCreds(); if(!creds) return;
+  const url = `https://api.jsonbin.io/v3/b/${encodeURIComponent(creds.id)}/latest`;
+  const r = await fetch(url, { headers:{ 'X-Master-Key': creds.key } });
+  if(!r.ok){ alert('Ошибка загрузки из облака: '+r.status); return; }
+  const json = await r.json();
+  const data = json?.record || {};
+  if(!Array.isArray(data.rows) || !data.model){ alert('В бине не найдено нужных данных.'); return; }
+  store.rows = data.rows; store.model = data.model; store.version = data.version || 'cloud';
+  saveToLocal(); updateModelInfo();
+  alert('Загружено из облака. Модель сохранена локально.');
+}
+document.getElementById('cloudSave').onclick = cloudSave;
+document.getElementById('cloudLoad').onclick = cloudLoad;
+
+/* ===== Вкладки + пароль ===== */
 const modal = document.getElementById('pwdModal');
 const pwdInput = document.getElementById('pwdInput');
+const pwdRemember = document.getElementById('pwdRemember');
 function openPwd(){ modal.style.display='flex'; modal.setAttribute('aria-hidden','false'); pwdInput.value=''; setTimeout(()=>pwdInput.focus(),50); }
 function closePwd(){ modal.style.display='none'; modal.setAttribute('aria-hidden','true'); }
-
 document.getElementById('pwdCancel').onclick = closePwd;
 document.getElementById('pwdOk').onclick = ()=>{
   if(pwdInput.value==='admin'){
     sessionStorage.setItem(SS_ADMIN,'1');
-    closePwd();
-    // показать админ секцию
-    switchTab('admin');
+    if(pwdRemember.checked){ localStorage.setItem(LS_ADMIN,'1'); } else { localStorage.removeItem(LS_ADMIN); }
+    closePwd(); switchTab('admin');
   }else{
     alert('Неверный пароль');
   }
@@ -300,7 +358,6 @@ function switchTab(id){
     document.getElementById(sec).style.display = (sec===id)?'block':'none';
   });
 }
-
 document.querySelectorAll('.tab').forEach(t=>{
   t.addEventListener('click',()=>{
     const id=t.dataset.tab;
@@ -329,7 +386,7 @@ document.getElementById('analyze').addEventListener('click', ()=>{
   const out=document.getElementById('outPredict'); out.innerHTML='';
   const head=document.createElement('div');
   head.className='item';
-  head.innerHTML=`<b>Закупка:</b> ${escapeHTML(reg)}<br><span class="muted">Закон (угадан по ссылке): <b>${escapeHTML(lawGuess||'—')}</b>. Источник прогноза — частоты побед из загруженной истории (модель загружается из localStorage).</span>`;
+  head.innerHTML=`<b>Закупка:</b> ${escapeHTML(reg)}<br><span class="muted">Закон (угадан по ссылке): <b>${escapeHTML(lawGuess||'—')}</b>. Источник прогноза — частоты побед из истории (модель может грузиться из облака).</span>`;
   out.appendChild(head);
 
   if(!items.length){ out.innerHTML+='<div class="item">Недостаточно данных для прогноза.</div>'; return; }
