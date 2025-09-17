@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>BG Broker — Mini App (MVP)</title>
+<link rel="icon" href="data:,">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+  :root { --bg:#0f1115; --card:#151923; --text:#e8eaf0; --muted:#9aa3b2; --accent:#3ecf8e; }
+  body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,Segoe UI,Roboto,Arial}
+  header{padding:14px 16px;border-bottom:1px solid #202636}
+  h1{margin:0;font-size:18px;color:var(--accent)}
+  .wrap{max-width:960px;margin:0 auto;padding:0 14px}
+  .tabs{display:flex;gap:6px;margin:10px 0}
+  .tab{padding:8px 12px;border:1px solid #2a3245;border-radius:10px;background:#1a2030;cursor:pointer}
+  .tab.active{background:var(--accent);color:#08120e;border-color:transparent}
+  .card{background:var(--card);border:1px solid #202636;border-radius:14px;padding:14px;margin:10px 0}
+  label{display:block;margin:8px 0 6px;font-weight:600}
+  input,button,select,textarea{font:inherit}
+  input,select,textarea{width:100%;padding:10px;border:1px solid #2a3245;border-radius:10px;background:#0f1320;color:var(--text)}
+  .row{display:grid;grid-template-columns: 1fr 1fr; gap:10px}
+  .btn{display:inline-block;background:var(--accent);color:#08120e;border:0;border-radius:10px;padding:10px 14px;font-weight:700;cursor:pointer}
+  .muted{color:var(--muted);font-size:13px}
+  .list .item{padding:10px;border:1px solid #2a3245;border-radius:10px;margin:6px 0;background:#0f1320}
+  .good{color:#3ecf8e}.warn{color:#ffce57}.bad{color:#ff7b7b}
+  .note{font-size:12px;color:#9aa3b2}
+</style>
+</head>
+<body>
+<header class="wrap"><h1>BG Broker — мини-аппа (тест)</h1><div class="muted">Ссылка на закупку → прогноз участников/победителя. Вкладка «Все закупки» — обзор по заказчику.</div></header>
+<main class="wrap">
+  <div class="tabs">
+    <div class="tab active" data-tab="predict">Закупка</div>
+    <div class="tab" data-tab="browse">Все закупки</div>
+  </div>
+
+  <section class="card" id="predict">
+    <label>Ссылка на закупку (ЕИС 44-ФЗ/223-ФЗ)</label>
+    <input id="tenderUrl" placeholder="https://zakupki.gov.ru/..." />
+    <div class="row">
+      <div><label>Заказчик (если не вытянется из ссылки)</label><input id="customer" placeholder="Напр.: МУП «Теплосети»" /></div>
+      <div>
+        <label>Код ОКПД2 / предмет</label>
+        <input id="okpd" placeholder="Напр.: 42.21.22.130 (или текст 'теплосети')" />
+      </div>
+    </div>
+    <div class="row">
+      <div><label>Регион</label><input id="region" placeholder="Напр.: Чувашская Республика" /></div>
+      <div><label>НМЦК / масштаб</label><input id="amount" placeholder="Напр.: 75 000 000" /></div>
+    </div>
+    <div class="row">
+      <div>
+        <label>История побед (CSV)</label>
+        <input type="file" id="csv" accept=".csv" />
+        <div class="note">Формат: supplier,customer,okpd,region,amount,date</div>
+      </div>
+      <div style="display:flex;align-items:flex-end;gap:8px;justify-content:flex-end">
+        <button class="btn" id="loadDemo">Загрузить демо-данные</button>
+        <button class="btn" id="analyze">Анализ</button>
+      </div>
+    </div>
+    <div id="outPredict" class="list"></div>
+    <div class="muted note">Примечание: для 223-ФЗ поставщики в открытых данных часто скрыты, прогноз делается по косвенным признакам.</div>
+  </section>
+
+  <section class="card" id="browse" style="display:none">
+    <label>Фильтр по заказчику</label>
+    <input id="fltCustomer" placeholder="Начните вводить название заказчика" />
+    <label>Фильтр по ОКПД2/предмету</label>
+    <input id="fltOkpd" placeholder="Код или слово" />
+    <button class="btn" id="browseBtn">Показать победителей и участников</button>
+    <div id="outBrowse" class="list"></div>
+  </section>
+</main>
+
+<script>
+// Инициализация Mini App (телеграм-обвязка)
+try { Telegram.WebApp.ready(); Telegram.WebApp.expand(); } catch(e){}
+
+// Простейший CSV-парсер (без внешних библиотек)
+function parseCSV(text){
+  const lines = text.trim().split(/\r?\n/);
+  const headers = lines.shift().split(',').map(h=>h.trim());
+  return lines.map(l=>{
+    const cols = l.split(',').map(c=>c.trim());
+    const obj = {}; headers.forEach((h,i)=>obj[h]=cols[i]||''); return obj;
+  });
+}
+
+// Демо-данные (можно сразу анализировать без CSV)
+let rows = []; // сюда попадут записи историй
+const demo = `supplier,customer,okpd,region,amount,date
+ООО "СтройКрафт",ГУП "Чувашгаз",42.21.22.130,Чувашская Республика,299809000,2023-09-15
+ООО "ТеплоСервис",МУП "Теплосети Алатыря",42.21.22.130,Чувашская Республика,75467000,2025-05-01
+ООО "ИнжСтрой",Администрация г. Алатырь,43.29.11.110,Чувашская Республика,56000000,2024-11-22
+ООО "ЭнергоПроект",ГУП "Чувашгаз",42.21.22.130,Чувашская Республика,180000000,2024-04-02
+ООО "ГидроМонтаж",Администрация г. Алатырь,42.21.22.130,Чувашская Республика,92000000,2023-07-09
+`;
+
+document.getElementById('loadDemo').onclick = ()=>{ rows = parseCSV(demo); alert('Загружены демо-данные (5 записей)'); };
+
+document.getElementById('csv').addEventListener('change', async (e)=>{
+  const f = e.target.files[0]; if(!f) return;
+  const text = await f.text(); rows = parseCSV(text);
+  alert('CSV загружен: '+rows.length+' записей');
+});
+
+// Простая функция «скоринга» поставщика под закупку
+function scoreSupplier(s, ctx){
+  let score = 0; let reasons=[];
+  // Совпадения по заказчику
+  const sameCustomer = rows.filter(r=>r.supplier===s && r.customer===ctx.customer).length;
+  if(sameCustomer>0){ score += 3; reasons.push(`Победы у этого заказчика (${sameCustomer})`); }
+  // Совпадение предмета/ОКПД2
+  const okpdHits = rows.filter(r=>r.supplier===s && (r.okpd.includes(ctx.okpd) || ctx.okpd.includes(r.okpd) || (ctx.okpd && r.okpd && ctx.okpd.split(' ')[0]===r.okpd.split(' ')[0]))).length;
+  if(okpdHits>0){ score += 2; reasons.push(`Опыт по предмету/ОКПД2 (${okpdHits})`); }
+  // Регион
+  const sameRegion = rows.filter(r=>r.supplier===s && r.region===ctx.region).length;
+  if(sameRegion>0){ score += 1; reasons.push(`Работают в регионе`); }
+  // Масштаб суммы (±50%)
+  const amounts = rows.filter(r=>r.supplier===s).map(r=>Number(r.amount||0)).filter(Boolean);
+  if(amounts.length){
+    const avg = amounts.reduce((a,b)=>a+b,0)/amounts.length;
+    const amt = Number((ctx.amount||'').toString().replace(/\s/g,''))||0;
+    if(amt && Math.abs(amt-avg)/avg <= 0.5){ score += 1; reasons.push(`Сумма в типичном диапазоне (${Math.round(avg).toLocaleString('ru-RU')} ₽)`); }
+  }
+  return {score,reasons};
+}
+
+function analyze(){
+  const ctx = {
+    url: document.getElementById('tenderUrl').value.trim(),
+    customer: document.getElementById('customer').value.trim(),
+    okpd: document.getElementById('okpd').value.trim(),
+    region: document.getElementById('region').value.trim(),
+    amount: document.getElementById('amount').value.trim()
+  };
+  if(!rows.length){ alert('Загрузите CSV или нажмите «Загрузить демо-данные».'); return; }
+  // Список кандидатов = все уникальные supplier из истории, отфильтрованные по региону/окпд если заданы
+  const suppliers = [...new Set(rows.map(r=>r.supplier))];
+  const scored = suppliers.map(s=>({supplier:s, ...scoreSupplier(s,ctx)}))
+    .sort((a,b)=>b.score-a.score).slice(0,5);
+
+  const out = document.getElementById('outPredict'); out.innerHTML='';
+  if(!scored.length){ out.innerHTML = '<div class="item">Нет кандидатов — дополните историю побед (CSV).</div>'; return; }
+  scored.forEach((it,i)=>{
+    const why = it.reasons.length ? it.reasons.join('; ') : 'Косвенные признаки по истории побед и предмету.';
+    const rank = i===0 ? '<b class="good">— прогноз победителя</b>' : '';
+    const div = document.createElement('div');
+    div.className='item';
+    div.innerHTML = `<b>${i+1}. ${it.supplier}</b> ${rank}<br><span class="muted">${why}</span>`;
+    out.appendChild(div);
+  });
+}
+
+document.getElementById('analyze').onclick = analyze;
+
+// Вкладка «Все закупки»: простой фильтр по loaded rows
+function browse(){
+  const c = document.getElementById('fltCustomer').value.trim().toLowerCase();
+  const k = document.getElementById('fltOkpd').value.trim().toLowerCase();
+  const out = document.getElementById('outBrowse'); out.innerHTML='';
+  if(!rows.length){ out.innerHTML = '<div class="item">Загрузите демо-данные или CSV.</div>'; return; }
+  const data = rows.filter(r=>
+    (!c || (r.customer||'').toLowerCase().includes(c)) &&
+    (!k || (r.okpd||'').toLowerCase().includes(k) || (r.subject||'').toLowerCase().includes(k))
+  ).slice(0,50);
+  if(!data.length){ out.innerHTML = '<div class="item">Ничего не найдено под фильтр.</div>'; return; }
+  data.forEach((r,i)=>{
+    const div = document.createElement('div');
+    div.className='item';
+    div.innerHTML = `<b>${i+1}. ${r.customer}</b> — победитель: <b>${r.supplier}</b><br>
+    <span class="muted">ОКПД2: ${r.okpd||'—'} | Регион: ${r.region||'—'} | Сумма: ${Number(r.amount||0).toLocaleString('ru-RU')} ₽ | Дата: ${r.date||'—'}</span>`;
+    out.appendChild(div);
+  });
+}
+document.getElementById('browseBtn').onclick = browse;
+
+// Переключение вкладок
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick=()=>{ document.querySelectorAll('.tab').forEach(x=>x.classList.remove('active')); t.classList.add('active');
+    document.getElementById('predict').style.display = t.dataset.tab==='predict'?'block':'none';
+    document.getElementById('browse').style.display = t.dataset.tab==='browse'?'block':'none';
+  };
+});
+</script>
+</body>
+</html>
