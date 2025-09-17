@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>BG Broker — Mini App (iOS fix + persist + import/export)</title>
+<title>BG Broker — Mini App (iOS CSV fix + persist + import/export)</title>
 <link rel="icon" href="data:,">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
@@ -12,10 +12,10 @@
     --bg:#0f1115; --card:#151923; --text:#e8eaf0; --muted:#9aa3b2; --accent:#3ecf8e;
     --border:#202636; --input:#0f1320; --radius:14px; --radius-sm:10px;
     --s1:6px; --s2:10px; --s3:14px; --s4:18px; --s5:24px;
-    --fs-12:12px; --fs-13:13px; --fs-14:14px; --fs-15:15px; --fs-16:16px; --fs-18:18px; --fs-20:20px;
+    --fs-12:12px; --fs-13:13px; --fs-14:14px; --fs-15:15px; --fs-16:16px; --fs-18:18px;
     --container:960px;
   }
-  @media (min-width:768px){ :root{ --fs-15:16px; --fs-18:20px; --fs-20:22px; } }
+  @media (min-width:768px){ :root{ --fs-15:16px; --fs-18:20px; } }
   html,body{height:100%}
   body{margin:0;background:var(--bg);color:var(--text);font:var(--fs-15)/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial;padding-bottom:env(safe-area-inset-bottom)}
   .wrap{max-width:var(--container);margin:0 auto;padding:0 var(--s3)}
@@ -23,22 +23,22 @@
   h1{margin:0 0 var(--s1);font-size:var(--fs-18);color:var(--accent)}
   .muted{color:var(--muted);font-size:var(--fs-13)}
   .tabs{display:flex;gap:var(--s1);margin:var(--s2) 0;flex-wrap:wrap}
-  .tab{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#1a2030;cursor:pointer;user-select:none}
+  .tab{padding:8px 12px;border:1px solid var(--border);border-radius:10px;background:#1a2030;cursor:pointer;user-select:none}
   .tab.active{background:var(--accent);color:#08120e;border-color:transparent}
-  .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:var(--s3);margin:var(--s2) 0}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:var(--s3);margin:var(--s2) 0}
   label{display:block;margin:var(--s2) 0 var(--s1);font-weight:600}
   input,button{font:inherit}
-  input{width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--input);color:var(--text)}
+  input{width:100%;padding:12px;border:1px solid var(--border);border-radius:10px;background:var(--input);color:var(--text)}
   input::placeholder{color:#7f8797}
-  .btn{display:inline-block;background:var(--accent);color:#08120e;border:0;border-radius:var(--radius-sm);padding:12px 16px;font-weight:700;cursor:pointer;min-width:44px;min-height:44px}
+  .btn{display:inline-block;background:var(--accent);color:#08120e;border:0;border-radius:10px;padding:12px 16px;font-weight:700;cursor:pointer;min-width:44px;min-height:44px}
   .btn:active{transform:translateY(1px)}
   .btn.gray{background:#5f6674;color:#fff}
   .note{font-size:var(--fs-12);color:var(--muted)}
-  .list .item{padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin:var(--s1) 0;background:var(--input)}
+  .list .item{padding:12px;border:1px solid var(--border);border-radius:10px;margin:var(--s1) 0;background:var(--input)}
   .good{color:#3ecf8e}
   .row{display:grid;grid-template-columns:1fr;gap:var(--s2)}
   @media (min-width:768px){ .row{grid-template-columns:1fr 1fr} }
-  @media (max-width:480px){ h1{font-size:var(--fs-16)} .btn{width:100%} }
+  @media (max-width:480px){ h1{font-size:16px} .btn{width:100%} }
   @media (prefers-color-scheme:light){
     :root{ --bg:#f7f8fb; --card:#fff; --text:#0c0d10; --muted:#5f6674; --border:#e6e8ee; --input:#fff }
     .tab{background:#f1f3f8}.tab.active{color:#fff}
@@ -69,7 +69,7 @@
     <input id="tenderUrl" placeholder="https://zakupki.gov.ru/..." inputmode="url" />
     <div style="margin-top:var(--s2);display:flex;gap:var(--s2);flex-wrap:wrap">
       <button class="btn" id="analyze">Анализ</button>
-      <span class="note">Контекст подтянем из ЕИС API позже; сейчас — частоты побед по закону и общий рейтинг.</span>
+      <span class="note">Контекст из ЕИС подключим позже; сейчас — частоты побед по закону и общий рейтинг.</span>
     </div>
     <div id="outPredict" class="list" aria-live="polite" style="margin-top:var(--s2)"></div>
   </section>
@@ -81,7 +81,7 @@
       <div><label>Фильтр по закону</label><input id="fltLaw" placeholder="44-ФЗ или 223-ФЗ" /></div>
     </div>
     <button class="btn" id="browseBtn" style="margin-top:var(--s2)">Показать закупки с победителями</button>
-    <div class="note" style="margin-top:var(--s1)">Источник — загруженный CSV (7 колонок). У каждой компании выводим ИНН, почту, ФИО и телефон ЛПРа.</div>
+    <div class="note" style="margin-top:var(--s1)">Источник — загруженный CSV (7 колонок). Для каждой компании — ИНН, почта и ЛПР.</div>
     <div id="outBrowse" class="list" aria-live="polite" style="margin-top:var(--s2)"></div>
   </section>
 
@@ -117,11 +117,11 @@
       <div>
         <label>Импорт модели и данных</label>
         <input type="file" id="importFile" accept=".json" />
-        <div class="note">Выберите ранее сохранённый файл <code>bg-model.json</code>.</div>
+        <div class="note">Выберите файл <code>bg-model.json</code>, сохранённый ранее.</div>
       </div>
     </div>
 
-    <div class="note" style="margin-top:var(--s2)">Модель хранится локально в браузере. Экспорт/импорт позволяет перенести её на другое устройство без использования облака.</div>
+    <div class="note" style="margin-top:var(--s2)">Модель хранится локально в браузере. Экспорт/импорт — простой перенос без облака.</div>
   </section>
 </main>
 
@@ -160,7 +160,7 @@ function guessLawFromUrl(url){
   return '';
 }
 function clean(s){ return (s??'').replace(/\u00A0/g,' ').replace(/\s+/g,' ').replace(/\uFFFD/g,'').trim(); }
-function escapeHTML(s){ return clean(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
+function escapeHTML(s){ return clean(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&gt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m])); }
 
 /* ===== Persist (локально) ===== */
 function saveToLocal(){
@@ -195,30 +195,15 @@ async function readFileSmart(file){
     const bad  = (text.match(/\uFFFD/g)||[]).length;
     const cyr  = (text.match(/[А-Яа-яЁё]/g)||[]).length;
     if (bad>0 || cyr===0) {
-      try {
-        text = new TextDecoder('windows-1251',{fatal:false}).decode(new Uint8Array(buf));
-      } catch(_) {}
+      try { text = new TextDecoder('windows-1251',{fatal:false}).decode(new Uint8Array(buf)); } catch(_) {}
     }
     return text;
   } catch (e) {
-    throw new Error('Не удалось прочитать CSV. Сохраните файл как «CSV UTF-8 (разделители — запятые)» и загрузите снова.');
+    throw new Error('Не удалось прочитать CSV. Сохраните как «CSV UTF-8 (разделители — запятые)» и загрузите снова.');
   }
 }
 
-/* ===== CSV-парсинг ===== */
-function parseCSVFlexible(textOrFile, useFile=false){
-  return new Promise((resolve, reject)=>{
-    const options = {
-      delimiter: "", newline: "", quoteChar: '"', escapeChar: '"',
-      header: false, skipEmptyLines: "greedy", worker: true,
-      transform: (val)=> (val==null ? "" : String(val)),
-      complete: (res)=> resolve(res),
-      error: (err)=> reject(err)
-    };
-    if (useFile) Papa.parse(textOrFile, options);
-    else Papa.parse(textOrFile, options);
-  });
-}
+/* ===== CSV → массив записей ===== */
 function toRows(res){
   const rows=[];
   for(const r of res.data){
@@ -275,31 +260,39 @@ document.getElementById('csv').addEventListener('change', async (e)=>{
 
   try{
     if (IS_IOS) {
-      // iOS: парсим напрямую файл (UTF-8)
-      const res = await parseCSVFlexible(f, true);
-      const rows = toRows(res);
-      if(!rows.length){
-        alert('CSV разобран, но записей нет. Частая причина — кодировка Windows-1251. Сохраните как «CSV UTF-8» и загрузите снова.');
-        return;
-      }
-      store.rows = rows; store.model = trainModel(rows); store.version = 'csv-'+Date.now();
-      saveToLocal(); updateModelInfo();
-      alert('CSV загружен: '+rows.length+' записей. Модель обучена и сохранена.');
+      // iOS: читаем текст и парсим БЕЗ worker (фикс "object can not be cloned")
+      const text = await f.text();
+      Papa.parse(text, {
+        header:false, skipEmptyLines:"greedy", worker:false,
+        complete:(res)=>{
+          const rows = toRows(res);
+          if(!rows.length){
+            alert('CSV разобран, но записей нет. Сохраните файл как «CSV UTF-8 (разделители — запятые)» и загрузите снова.');
+            return;
+          }
+          store.rows = rows; store.model = trainModel(rows); store.version = 'csv-'+Date.now();
+          saveToLocal(); updateModelInfo();
+          alert('CSV загружен: '+rows.length+' записей. Модель обучена и сохранена.');
+        },
+        error:(err)=> alert('Ошибка чтения CSV: '+(err?.message||err))
+      });
     } else {
-      // другие платформы: читаем текст с авто перекодировкой, затем парсим текст
+      // Прочие платформы: авто перекодировка и можно с worker
       const text = await readFileSmart(f);
-      const res  = await parseCSVFlexible(text, false);
-      const rows = toRows(res);
-      if(!rows.length){
-        alert('CSV разобран, но записей нет. Проверьте разделитель и кодировку.');
-        return;
-      }
-      store.rows = rows; store.model = trainModel(rows); store.version = 'csv-'+Date.now();
-      saveToLocal(); updateModelInfo();
-      alert('CSV загружен: '+rows.length+' записей. Модель обучена и сохранена.');
+      Papa.parse(text, {
+        header:false, skipEmptyLines:"greedy", worker:true,
+        complete:(res)=>{
+          const rows = toRows(res);
+          if(!rows.length){ alert('CSV разобран, но записей нет.'); return; }
+          store.rows = rows; store.model = trainModel(rows); store.version = 'csv-'+Date.now();
+          saveToLocal(); updateModelInfo();
+          alert('CSV загружен: '+rows.length+' записей. Модель обучена и сохранена.');
+        },
+        error:(err)=> alert('Ошибка чтения CSV: '+(err?.message||err))
+      });
     }
   }catch(err){
-    alert('Ошибка загрузки CSV: ' + (err?.message || err));
+    alert('Ошибка загрузки CSV: '+(err?.message || err));
   }
 });
 
@@ -312,8 +305,7 @@ document.getElementById('loadDemo').onclick=()=>{
     'ООО "ГидроМонтаж",7733333333,0818500000825005005,223-ФЗ,contact@hydro.ru,Смирнов С.С.,+7 900 000-00-05',
     'ООО "СтройКрафт",7734567890,0818500000825006006,44-ФЗ,info@stroikraft.ru,Иванов И.И.,+7 900 000-00-01'
   ].join('\n');
-  Papa.parse(demo, {
-    delimiter:"",newline:"",header:false,skipEmptyLines:"greedy",
+  Papa.parse(demo, { header:false, skipEmptyLines:"greedy",
     complete:(res)=>{
       const rows=toRows(res);
       store.rows = rows; store.model = trainModel(rows); store.version='demo-1';
