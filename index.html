@@ -3,11 +3,9 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-<title>BG Broker — Mini App (CSV v2)</title>
+<title>BG Broker — Mini App (CSV v2, encoding fix)</title>
 <link rel="icon" href="data:,">
-<!-- Telegram Mini App SDK -->
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
-<!-- Надёжный CSV-парсер -->
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
   :root{
@@ -17,44 +15,32 @@
     --fs-12:12px; --fs-13:13px; --fs-14:14px; --fs-15:15px; --fs-16:16px; --fs-18:18px; --fs-20:20px;
     --container:960px;
   }
-  @media (min-width: 768px){ :root{ --fs-15:16px; --fs-18:20px; --fs-20:22px; } }
+  @media (min-width:768px){ :root{ --fs-15:16px; --fs-18:20px; --fs-20:22px; } }
   html,body{height:100%}
-  body{
-    margin:0;background:var(--bg);color:var(--text);
-    font: var(--fs-15)/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial;
-    -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;
-    padding-bottom: env(safe-area-inset-bottom);
-  }
+  body{margin:0;background:var(--bg);color:var(--text);font:var(--fs-15)/1.5 system-ui,-apple-system,Segoe UI,Roboto,Arial;padding-bottom:env(safe-area-inset-bottom)}
   .wrap{max-width:var(--container);margin:0 auto;padding:0 var(--s3)}
   header{padding:calc(var(--s3) + env(safe-area-inset-top)) var(--s3) var(--s3);border-bottom:1px solid var(--border)}
   h1{margin:0 0 var(--s1);font-size:var(--fs-18);color:var(--accent)}
   .muted{color:var(--muted);font-size:var(--fs-13)}
-
   .tabs{display:flex;gap:var(--s1);margin:var(--s2) 0;flex-wrap:wrap}
   .tab{padding:8px 12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:#1a2030;cursor:pointer;user-select:none}
   .tab.active{background:var(--accent);color:#08120e;border-color:transparent}
-
   .card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:var(--s3);margin:var(--s2) 0}
   label{display:block;margin:var(--s2) 0 var(--s1);font-weight:600}
   input,button{font:inherit}
-  input{
-    width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--input);color:var(--text)
-  }
+  input{width:100%;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--input);color:var(--text)}
   input::placeholder{color:#7f8797}
   .btn{display:inline-block;background:var(--accent);color:#08120e;border:0;border-radius:var(--radius-sm);padding:12px 16px;font-weight:700;cursor:pointer;min-width:44px;min-height:44px}
   .btn:active{transform:translateY(1px)}
   .note{font-size:var(--fs-12);color:var(--muted)}
-
   .list .item{padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);margin:var(--s1) 0;background:var(--input)}
   .good{color:#3ecf8e}
-
   .row{display:grid;grid-template-columns:1fr;gap:var(--s2)}
   @media (min-width:768px){ .row{grid-template-columns:1fr 1fr} }
   @media (max-width:480px){ h1{font-size:var(--fs-16)} .btn{width:100%} }
-
-  @media (prefers-color-scheme: light){
-    :root{ --bg:#f7f8fb; --card:#ffffff; --text:#0c0d10; --muted:#5f6674; --border:#e6e8ee; --input:#ffffff; }
-    .tab{background:#f1f3f8}.tab.active{color:#ffffff} input{background:#fff}
+  @media (prefers-color-scheme:light){
+    :root{ --bg:#f7f8fb; --card:#fff; --text:#0c0d10; --muted:#5f6674; --border:#e6e8ee; --input:#fff }
+    .tab{background:#f1f3f8}.tab.active{color:#fff}
   }
 </style>
 </head>
@@ -71,7 +57,7 @@
     <button class="tab" data-tab="admin" role="tab" aria-selected="false">Админ</button>
   </div>
 
-  <!-- ВКЛАДКА 1: ЗАКУПКА -->
+  <!-- Закупка -->
   <section class="card" id="predict" role="tabpanel">
     <label>Ссылка на закупку (ЕИС 44-ФЗ / 223-ФЗ)</label>
     <input id="tenderUrl" placeholder="https://zakupki.gov.ru/..." inputmode="url" />
@@ -82,33 +68,25 @@
     <div id="outPredict" class="list" aria-live="polite" style="margin-top:var(--s2)"></div>
   </section>
 
-  <!-- ВКЛАДКА 2: ВСЕ ЗАКУПКИ -->
+  <!-- Все закупки -->
   <section class="card" id="browse" style="display:none" role="tabpanel">
     <div class="row">
-      <div>
-        <label>Фильтр по рег. номеру</label>
-        <input id="fltReg" placeholder="Напр.: 0818500000825..." />
-      </div>
-      <div>
-        <label>Фильтр по закону</label>
-        <input id="fltLaw" placeholder="44-ФЗ или 223-ФЗ" />
-      </div>
+      <div><label>Фильтр по рег. номеру</label><input id="fltReg" placeholder="Напр.: 0818500000825..." /></div>
+      <div><label>Фильтр по закону</label><input id="fltLaw" placeholder="44-ФЗ или 223-ФЗ" /></div>
     </div>
     <button class="btn" id="browseBtn" style="margin-top:var(--s2)">Показать закупки с победителями</button>
     <div class="note" style="margin-top:var(--s1)">Источник — загруженный CSV (7 колонок). У каждой компании выводим ИНН, почту, ФИО и телефон ЛПРа.</div>
     <div id="outBrowse" class="list" aria-live="polite" style="margin-top:var(--s2)"></div>
   </section>
 
-  <!-- ВКЛАДКА 3: АДМИН -->
+  <!-- Админ -->
   <section class="card" id="admin" style="display:none" role="tabpanel">
     <h3 style="margin-top:0">Загрузка истории и обучение ИИ</h3>
     <div class="row">
       <div>
         <label>Загрузить историю (CSV, 7 колонок по порядку)</label>
         <input type="file" id="csv" accept=".csv" />
-        <div class="note">
-          1) company · 2) inn · 3) reg_number · 4) law · 5) winner_email · 6) dmr_name · 7) dmr_phone
-        </div>
+        <div class="note">1) company · 2) inn · 3) reg_number · 4) law · 5) winner_email · 6) dmr_name · 7) dmr_phone</div>
       </div>
       <div>
         <label>Статус модели</label>
@@ -120,108 +98,110 @@
       <button class="btn" id="train">Переобучить</button>
       <button class="btn" id="clear">Очистить историю</button>
     </div>
-    <div class="note" style="margin-top:var(--s2)">
-      ЕИС API подключим позже (нужен токен). Модель уже обучается на CSV и учитывает частоты побед по 44/223-ФЗ.
-    </div>
+    <div class="note" style="margin-top:var(--s2)">ЕИС API подключим позже (нужен токен). Модель уже обучается на CSV.</div>
   </section>
 </main>
 
 <script>
-/* Telegram init */
 try{ Telegram.WebApp.ready(); Telegram.WebApp.expand(); }catch(e){}
 
 /* ===== Хранилище ===== */
 const store = { rows: [], model: null, version: null };
 
 /* ===== Утилиты ===== */
-function extractRegNumber(url){
-  try{ const u=new URL(url); return u.searchParams.get('regNumber')||'' }catch(e){ return '' }
-}
+function extractRegNumber(url){ try{ const u=new URL(url); return u.searchParams.get('regNumber')||'' }catch(e){ return '' } }
 function guessLawFromUrl(url){
-  const s = url.toLowerCase();
-  if(s.includes('44-фз') || s.includes('44fz') || s.includes('law44')) return '44-ФЗ';
-  if(s.includes('223-фз')|| s.includes('223fz')|| s.includes('law223')) return '223-ФЗ';
-  return ''; // не смогли угадать
+  const s=url.toLowerCase();
+  if(s.includes('44-фз')||s.includes('44fz')||s.includes('law44')) return '44-ФЗ';
+  if(s.includes('223-фз')||s.includes('223fz')||s.includes('law223')) return '223-ФЗ';
+  return '';
+}
+function clean(s){
+  return (s??'').replace(/\u00A0/g,' ').replace(/\s+/g,' ').replace(/\uFFFD/g,'').trim();
+}
+function escapeHTML(s){
+  return clean(s).replace(/[&<>"']/g,m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
 }
 
-/* ===== Парсинг CSV (надёжный) =====
-   Принимаем любой разделитель (, ; \t), кавычки, заголовок не обязателен.
-   Берём РОВНО первые 7 колонок по порядку и отбрасываем возможную строку-заголовок. */
-function parseCSVFlexible(text) {
-  const res = Papa.parse(text, {
-    delimiter: "",            // авто-детект
-    newline: "",              // авто-детект
-    quoteChar: '"',
-    escapeChar: '"',
-    header: false,
-    skipEmptyLines: "greedy",
-    transform: (val) => (val == null ? "" : String(val).trim())
-  });
-  if (res.errors && res.errors.length) {
-    console.warn("CSV parse errors:", res.errors.slice(0,3));
+/* ===== Чтение файла с авто-детектом кодировки (UTF-8 → cp1251) ===== */
+async function readFileSmart(file){
+  const buf = await file.arrayBuffer();
+  // 1) пробуем UTF-8
+  let text = new TextDecoder('utf-8',{fatal:false}).decode(new Uint8Array(buf));
+  const bad = (text.match(/\uFFFD/g)||[]).length;
+  const cyr = (text.match(/[А-Яа-яЁё]/g)||[]).length;
+  // 2) если есть � или нет кириллицы — пробуем windows-1251
+  if(bad>0 || cyr===0){
+    try{
+      text = new TextDecoder('windows-1251',{fatal:false}).decode(new Uint8Array(buf));
+    }catch(e){ /* на всякий случай оставим utf-8 */ }
   }
-  const rows = [];
-  for (const r of res.data) {
-    if (!r || !r.length) continue;
-    // гарантируем длину 7
-    while (r.length < 7) r.push('');
-    const [company, inn, reg_number, law, winner_email, dmr_name, dmr_phone] =
-      [0,1,2,3,4,5,6].map(i => (r[i] ?? "").toString().trim());
+  return text;
+}
 
-    // отсечь возможную шапку
+/* ===== Парсинг CSV (любой разделитель, кавычки, 7 колонок) ===== */
+function parseCSVFlexible(text){
+  const res = Papa.parse(text,{
+    delimiter:"", newline:"", quoteChar:'"', escapeChar:'"', header:false,
+    skipEmptyLines:"greedy",
+    transform: (val)=> (val==null?"":String(val))
+  });
+  const rows=[];
+  for(const r of res.data){
+    if(!r || !r.length) continue;
+    while(r.length<7) r.push('');
+    const rec = {
+      company      : clean(r[0]),
+      inn          : clean(r[1]),
+      reg_number   : clean(r[2]),
+      law          : clean(r[3]).toUpperCase(),
+      winner_email : clean(r[4]),
+      dmr_name     : clean(r[5]),
+      dmr_phone    : clean(r[6]),
+    };
+    // отбрасываем строку-заголовок
     const headerHints = ["company","inn","reg_number","law","winner_email","dmr_name","dmr_phone"];
-    const maybeHeader = headerHints.some(h => company.toLowerCase().includes(h) || inn.toLowerCase().includes(h));
-    if (maybeHeader) continue;
-
-    if (!company) continue; // обязательное поле
-    rows.push({ company, inn, reg_number, law, winner_email, dmr_name, dmr_phone });
+    const maybeHeader = headerHints.some(h => rec.company.toLowerCase().includes(h) || rec.inn.toLowerCase().includes(h));
+    if(maybeHeader) continue;
+    if(!rec.company) continue;
+    rows.push(rec);
   }
   return rows;
 }
 
-/* ===== Простейшая «ИИ»-модель (скоринг частотами) =====
-   - bySupplier: суммарные победы компании
-   - byLawSupplier: победы по конкретному закону (44 / 223) */
+/* ===== Модель (частоты побед) ===== */
 function trainModel(rows){
-  const bySupplier = {};
-  const byLawSupplier = {};
+  const bySupplier={}, byLawSupplier={};
   rows.forEach(r=>{
-    const c = r.company||''; if(!c) return;
-    const law = (r.law||'').toUpperCase();
-    bySupplier[c] = bySupplier[c] || { wins:0, inn:r.inn||'', email:r.winner_email||'', dmr:r.dmr_name||'', phone:r.dmr_phone||'' };
+    const c=r.company; if(!c) return;
+    bySupplier[c]=bySupplier[c]||{wins:0, inn:r.inn, email:r.winner_email, dmr:r.dmr_name, phone:r.dmr_phone};
     bySupplier[c].wins++;
-    if(law){
-      const key = law+'|'+c;
-      byLawSupplier[key] = (byLawSupplier[key]||0)+1;
+    if(r.law){
+      const key=r.law+'|'+c;
+      byLawSupplier[key]=(byLawSupplier[key]||0)+1;
     }
   });
-  return { bySupplier, byLawSupplier };
+  return {bySupplier,byLawSupplier};
 }
-
-/* ===== Админ: загрузка / обучение / очистка ===== */
 function updateModelInfo(){
-  const n = store.rows.length;
-  const v = store.version || '—';
-  document.getElementById('modelInfo').innerHTML =
-    `<div class="item">Исторических записей: <b>${n}</b><br>Версия модели: <b>${v}</b></div>`;
+  const n=store.rows.length, v=store.version||'—';
+  document.getElementById('modelInfo').innerHTML=`<div class="item">Исторических записей: <b>${n}</b><br>Версия модели: <b>${v}</b></div>`;
 }
 
+/* ===== Админ: загрузка/обучение/очистка ===== */
 document.getElementById('csv').addEventListener('change', async (e)=>{
-  const f = e.target.files[0]; if(!f) return;
-  const text = await f.text(); // читает UTF-8/BOM
+  const f=e.target.files[0]; if(!f) return;
+  const text = await readFileSmart(f);
   const parsed = parseCSVFlexible(text);
-  if(!parsed.length){
-    alert('Не удалось распознать данные. Проверь разделитель (, или ;) и порядок 7 колонок.');
-    return;
-  }
+  if(!parsed.length){ alert('Не удалось распознать CSV. Проверь разделитель и порядок 7 колонок.'); return; }
   store.rows = parsed;
-  store.model = trainModel(store.rows);
+  store.model = trainModel(parsed);
   store.version = 'csv-'+Date.now();
   updateModelInfo();
   alert('CSV загружен: '+store.rows.length+' записей. Модель обучена.');
 });
 
-document.getElementById('loadDemo').onclick = ()=>{
+document.getElementById('loadDemo').onclick=async()=>{
   const demo = [
     'ООО "СтройКрафт",7734567890,0818500000825001001,44-ФЗ,info@stroikraft.ru,Иванов И.И.,+7 900 000-00-01',
     'ООО "ТеплоСервис",7711111111,0818500000825002002,44-ФЗ,hello@teplo.ru,Петров П.П.,+7 900 000-00-02',
@@ -232,20 +212,20 @@ document.getElementById('loadDemo').onclick = ()=>{
   ].join('\n');
   store.rows = parseCSVFlexible(demo);
   store.model = trainModel(store.rows);
-  store.version = 'demo-1';
+  store.version='demo-1';
   updateModelInfo();
   alert('Загружены демо-данные и обучена модель.');
 };
 
-document.getElementById('train').onclick = ()=>{
+document.getElementById('train').onclick=()=>{
   if(!store.rows.length){ alert('Сначала загрузите CSV.'); return; }
-  store.model = trainModel(store.rows);
-  store.version = 'retrain-'+Date.now();
+  store.model=trainModel(store.rows);
+  store.version='retrain-'+Date.now();
   updateModelInfo();
   alert('Переобучение завершено.');
 };
 
-document.getElementById('clear').onclick = ()=>{
+document.getElementById('clear').onclick=()=>{
   store.rows=[]; store.model=null; store.version=null;
   updateModelInfo();
   alert('История и модель очищены.');
@@ -259,47 +239,47 @@ document.querySelectorAll('.tab').forEach(t=>{
     t.classList.add('active'); t.setAttribute('aria-selected','true');
     const id=t.dataset.tab;
     ['predict','browse','admin'].forEach(sec=>{
-      document.getElementById(sec).style.display = (sec===id)?'block':'none';
+      document.getElementById(sec).style.display=(sec===id)?'block':'none';
     });
   });
 });
 
-/* ===== Анализ закупки (прогноз по ссылке) ===== */
+/* ===== Анализ закупки ===== */
 document.getElementById('analyze').addEventListener('click', ()=>{
-  const url = document.getElementById('tenderUrl').value.trim();
+  const url=document.getElementById('tenderUrl').value.trim();
   if(!url){ alert('Вставьте ссылку на закупку.'); return; }
   if(!store.model || !store.rows.length){ alert('Нет данных. Загрузите CSV во вкладке «Админ».'); return; }
 
   const reg = extractRegNumber(url) || '—';
-  const lawGuess = guessLawFromUrl(url); // может быть пусто
+  const lawGuess = guessLawFromUrl(url);
 
   const items = Object.entries(store.model.bySupplier).map(([company,meta])=>{
-    const winsLaw = lawGuess ? (store.model.byLawSupplier[(lawGuess.toUpperCase()+'|'+company)]||0) : 0;
-    const score = lawGuess ? (winsLaw*2 + meta.wins*0.5) : meta.wins; // закон, если угадан, весим сильнее
+    const winsLaw = lawGuess ? (store.model.byLawSupplier[(lawGuess+'|'+company)]||0) : 0;
+    const score = lawGuess ? (winsLaw*2 + meta.wins*0.5) : meta.wins;
     return { company, inn:meta.inn||'—', email:meta.email||'—', dmr:meta.dmr||'—', phone:meta.phone||'—', wins:meta.wins, winsLaw, score };
   }).sort((a,b)=>b.score-a.score).slice(0,5);
 
-  const out = document.getElementById('outPredict'); out.innerHTML='';
-  const head = document.createElement('div');
+  const out=document.getElementById('outPredict'); out.innerHTML='';
+  const head=document.createElement('div');
   head.className='item';
-  head.innerHTML = `<b>Закупка:</b> ${reg}<br><span class="muted">Закон (угаданный по ссылке): <b>${lawGuess||'—'}</b>. Источник прогноза — частоты побед из загруженной истории.</span>`;
+  head.innerHTML=`<b>Закупка:</b> ${escapeHTML(reg)}<br><span class="muted">Закон (угадан по ссылке): <b>${escapeHTML(lawGuess||'—')}</b>. Источник прогноза — частоты побед из загруженной истории.</span>`;
   out.appendChild(head);
 
-  if(!items.length){ out.innerHTML += '<div class="item">Недостаточно данных для прогноза.</div>'; return; }
+  if(!items.length){ out.innerHTML+='<div class="item">Недостаточно данных для прогноза.</div>'; return; }
 
   items.forEach((it,i)=>{
     const rank = i===0 ? '<b class="good">— прогноз победителя</b>' : '';
     const why  = lawGuess ? `Побед в ${lawGuess}: ${it.winsLaw}, всего побед: ${it.wins}` : `Всего побед: ${it.wins}`;
     const div  = document.createElement('div');
     div.className='item';
-    div.innerHTML = `<b>${i+1}. ${it.company}</b> (ИНН: ${it.inn}) ${rank}<br>
-      <span class="muted">${why}</span><br>
-      <span class="note">Контакты: ${it.email} · ${it.dmr} · ${it.phone}</span>`;
+    div.innerHTML = `<b>${i+1}. ${escapeHTML(it.company)}</b> (ИНН: ${escapeHTML(it.inn)}) ${rank}<br>
+      <span class="muted">${escapeHTML(why)}</span><br>
+      <span class="note">Контакты: ${escapeHTML(it.email)} · ${escapeHTML(it.dmr)} · ${escapeHTML(it.phone)}</span>`;
     out.appendChild(div);
   });
 });
 
-/* ===== Все закупки (список из CSV) ===== */
+/* ===== Все закупки ===== */
 document.getElementById('browseBtn').addEventListener('click', ()=>{
   if(!store.rows.length){ alert('Сначала загрузите CSV во вкладке «Админ».'); return; }
   const fltReg = document.getElementById('fltReg').value.trim().toLowerCase();
@@ -309,15 +289,15 @@ document.getElementById('browseBtn').addEventListener('click', ()=>{
   if(fltReg) data = data.filter(r=> (r.reg_number||'').toLowerCase().includes(fltReg));
   if(fltLaw) data = data.filter(r=> (r.law||'').toUpperCase().includes(fltLaw));
 
-  const out = document.getElementById('outBrowse'); out.innerHTML='';
-  if(!data.length){ out.innerHTML = '<div class="item">Ничего не найдено под фильтры.</div>'; return; }
+  const out=document.getElementById('outBrowse'); out.innerHTML='';
+  if(!data.length){ out.innerHTML='<div class="item">Ничего не найдено под фильтры.</div>'; return; }
 
   data.slice(0,150).forEach((r,i)=>{
-    const div = document.createElement('div');
+    const div=document.createElement('div');
     div.className='item';
-    div.innerHTML = `<b>${i+1}. Закупка ${r.reg_number||'—'} (${(r.law||'').toUpperCase()||'—'})</b><br>
-      Победитель: <b>${r.company||'—'}</b> (ИНН: ${r.inn||'—'})<br>
-      <span class="note">Контакты: ${r.winner_email||'—'} · ${r.dmr_name||'—'} · ${r.dmr_phone||'—'}</span>`;
+    div.innerHTML = `<b>${i+1}. Закупка ${escapeHTML(r.reg_number||'—')} (${escapeHTML((r.law||'').toUpperCase()||'—')})</b><br>
+      Победитель: <b>${escapeHTML(r.company||'—')}</b> (ИНН: ${escapeHTML(r.inn||'—')})<br>
+      <span class="note">Контакты: ${escapeHTML(r.winner_email||'—')} · ${escapeHTML(r.dmr_name||'—')} · ${escapeHTML(r.dmr_phone||'—')}</span>`;
     out.appendChild(div);
   });
 });
