@@ -2,17 +2,18 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no"/>
 <title>BG Broker — мини-аппа</title>
 <link rel="icon" href="data:,">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-  /* Глобальные фиксы переполнений и масштабирования */
+  /* ===== Глобальные фиксы и тема ===== */
   *,*::before,*::after{box-sizing:border-box}
   html,body{height:100%}
+  html{-webkit-text-size-adjust:100%}
   body{margin:0;overflow-x:hidden;font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial}
-
   img,video{max-width:100%;height:auto}
   input,select,textarea,button{font:inherit;min-width:0}
 
@@ -35,7 +36,14 @@
     letter-spacing:.1px;
   }
 
-  .wrap{max-width:var(--w);margin:0 auto;padding:18px clamp(12px,3.5vw,22px)}
+  .wrap{
+    max-width:var(--w);
+    margin:0 auto;
+    padding-left:max(12px,env(safe-area-inset-left));
+    padding-right:max(12px,env(safe-area-inset-right));
+    padding-top:18px; padding-bottom:18px;
+  }
+  main{padding:18px 0 calc(24px + env(safe-area-inset-bottom))}
 
   header{
     position:sticky;top:0;z-index:5;
@@ -47,42 +55,42 @@
   .brand{display:flex;align-items:center;gap:10px;min-width:0}
   .logo{width:34px;height:34px;border-radius:10px;background:radial-gradient(120% 120% at 20% 20%,var(--accent) 0%,var(--accent2) 90%);box-shadow:0 8px 16px rgba(100,200,255,.18)}
   h1{margin:0;font-size:18px}
-  .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .sub{color:var(--muted);font-size:13px;margin-top:2px;overflow-wrap:anywhere}
 
-  .tabs{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+  .tabs{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;max-width:100%}
   .tab{border:1px solid var(--stroke);border-radius:12px;padding:10px 14px;background:var(--card);cursor:pointer;user-select:none;box-shadow:var(--shadow);transition:transform .12s ease,background .2s ease}
   .tab:hover{transform:translateY(-1px)}
   .tab.active{background:linear-gradient(180deg,rgba(102,224,163,.18),rgba(102,224,163,.10));border-color:rgba(102,224,163,.45)}
+  @media (max-width:375px){h1{font-size:16px}.tab{padding:9px 12px}}
 
-  main{padding:18px 0 30px}
   .grid{display:grid;gap:16px}
 
-  .card{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;overflow:hidden}
+  .card{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;overflow:hidden;max-width:100%}
 
   label{display:block;margin:12px 0 6px;font-weight:700}
   input,textarea{width:100%;background:linear-gradient(0deg,rgba(255,255,255,.06),rgba(255,255,255,.1));border:1px solid var(--stroke);border-radius:12px;padding:12px 14px;color:var(--text);outline:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
   textarea{min-height:120px;resize:vertical}
   input::placeholder,textarea::placeholder{color:var(--muted)}
+  input[type="file"]{width:100%;max-width:100%}
 
   .row{display:grid;gap:12px;grid-template-columns:1fr}
   @media (min-width:700px){.row{grid-template-columns:repeat(2,minmax(0,1fr))}}
   @media (min-width:1040px){.row-3{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
   .actions{display:flex;flex-wrap:wrap;gap:10px}
-
   .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border-radius:12px;border:0;cursor:pointer;font-weight:800;color:#07130b;background:linear-gradient(180deg,var(--accent),#3dd98f);box-shadow:0 12px 20px rgba(40,180,120,.25);transition:transform .12s ease;min-height:44px}
   .btn:hover{transform:translateY(-1px)}
   .btn.secondary{background:linear-gradient(180deg,var(--accent2),#3f7dff);color:#06112c;box-shadow:0 12px 20px rgba(70,120,255,.25)}
   .btn.ghost{background:transparent;color:var(--text);border:1px dashed var(--stroke)}
   .btn.danger{background:linear-gradient(180deg,#ff8787,#ff6b6b);color:#1a0c0c}
-  @media (max-width:420px){.btn{flex:1 1 100%}}
+  @media (max-width:420px){.btn{flex:1 1 100%;min-width:0}}
 
   .muted{color:var(--muted)}
-  .list .item{padding:12px;border:1px dashed var(--stroke);border-radius:12px;background:rgba(255,255,255,.04);margin:8px 0;overflow-wrap:anywhere;word-break:break-word}
-  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .list .item{padding:12px;border:1px dashed var(--stroke);border-radius:12px;background:rgba(255,255,255,.04);margin:8px 0;overflow-wrap:anywhere;word-break:break-word;white-space:normal}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;max-width:100%}
   .chip{font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(255,255,255,.05)}
 
-  .drop{border:2px dashed var(--stroke);border-radius:14px;padding:18px;text-align:center;color:var(--muted);transition:border-color .2s ease,background .2s ease}
+  .drop{border:2px dashed var(--stroke);border-radius:14px;padding:18px;text-align:center;color:var(--muted);transition:border-color .2s ease,background .2s ease;white-space:normal;min-height:72px;max-width:100%}
   .drop.drag{border-color:var(--accent);background:rgba(102,224,163,.08)}
 
   footer{margin:26px 0 12px;text-align:center;color:var(--muted);font-size:12px}
@@ -145,7 +153,7 @@
         <div>
           <label>Загрузить историю (CSV)</label>
           <input type="file" id="csv" accept=".csv,text/csv"/>
-          <div class="drop" id="drop">или перетащите CSV сюда</div>
+          <div class="drop" id="drop">или перетащите CSV</div>
           <div class="muted" style="margin-top:6px">
             Совместимы 2 формата:<br>
             <b>Базовый (7):</b> company,inn,reg_number,law,winner_email,dmr_name,dmr_phone<br>
@@ -170,10 +178,6 @@
           <div id="modelInfo" class="list"><div class="item">Исторических записей: 0<br/>Версия модели: —</div></div>
 
           <label style="margin-top:12px">Перенос между устройствами (без облака)</label>
-          <div class="chips" style="margin-bottom:8px">
-            <div class="chip">Экспорт JSON →</div>
-            <div class="chip">Импорт JSON ←</div>
-          </div>
           <div class="actions">
             <button class="btn" id="exportBtn">Скачать bg-model.json</button>
             <input type="file" id="importFile" accept=".json" style="max-width:260px"/>
@@ -211,7 +215,7 @@ try{Telegram.WebApp.ready();Telegram.WebApp.expand()}catch(e){}
 
 /* ===== helpers & state ===== */
 const IS_IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
-const LS='bg_miniapp_store_v2', LS_ADMIN='bg_admin_persist', SS_ADMIN='bg_admin_unlocked';
+const LS='bg_miniapp_store_v3', LS_ADMIN='bg_admin_persist', SS_ADMIN='bg_admin_unlocked';
 const $=s=>document.querySelector(s);
 const log=(m,t='info')=>{const b=$('#logs');const d=document.createElement('div');d.className='item';if(t==='err')d.style.borderColor='rgba(255,107,107,.5)';if(t==='ok')d.style.borderColor='rgba(102,224,163,.5)';d.innerHTML=m;b.prepend(d)};
 const store={rows:[],model:null,version:null,idx:{bySupp:{},byCustSupp:{},byOkpdSupp:{},byRegSupp:{},recentSupp:{}}};
@@ -321,8 +325,8 @@ $('#pwdOk').onclick=()=>{if(pwd.value==='admin'){sessionStorage.setItem(''+ 'bg_
 pwd.addEventListener('keydown',e=>{if(e.key==='Enter')$('#pwdOk').click()})
 
 function switchTab(id){document.querySelectorAll('.tab').forEach(t=>{t.classList.toggle('active',t.dataset.tab===id);t.setAttribute('aria-selected',t.dataset.tab===id?'true':'false')});['predict','browse','admin'].forEach(sec=>document.getElementById(sec).style.display=(sec===id)?'block':'none')}
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{const id=t.dataset.tab;if(id==='admin'&&!sessionStorage.getItem(SS_ADMIN)){openPwd();return}switchTab(id)})
-;(function boot(){ if(load()){updateModelInfo();log('Локальная модель загружена','ok')} if(localStorage.getItem(LS_ADMIN)==='1')sessionStorage.setItem(SS_ADMIN,'1') })();
+document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{const id=t.dataset.tab;if(id==='admin'&&!sessionStorage.getItem('bg_admin_unlocked')){openPwd();return}switchTab(id)})
+;(function boot(){ if(load()){updateModelInfo();log('Локальная модель загружена','ok')} if(localStorage.getItem(LS_ADMIN)==='1')sessionStorage.setItem('bg_admin_unlocked','1') })();
 
 /* ===== парсинг закупки через r.jina.ai (без CORS) и скоринг ===== */
 async function fetchTenderFacts(url){
@@ -398,7 +402,7 @@ $('#clearBrowse').onclick=()=>{$('#fltReg').value='';$('#fltLaw').value='';$('#o
 
 /* ===== авто-инициализация ===== */
 (function init(){
-  if(localStorage.getItem(LS_ADMIN)==='1')sessionStorage.setItem(SS_ADMIN,'1');
+  if(localStorage.getItem(LS_ADMIN)==='1')sessionStorage.setItem('bg_admin_unlocked','1');
   if(load()){updateModelInfo();log('Модель и индексы восстановлены из памяти.','ok')}
 })();
 </script>
