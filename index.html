@@ -2,410 +2,493 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>BG Broker — мини-аппа</title>
 <link rel="icon" href="data:,">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
-  /* ===== Базовые фиксы и тема ===== */
-  *,*::before,*::after{box-sizing:border-box}
-  html,body{height:100%;max-width:100vw}
-  html{-webkit-text-size-adjust:100%}
-  body{margin:0;overflow-x:hidden;font:16px/1.55 ui-sans-serif,system-ui,-apple-system,"Segoe UI",Roboto,Arial}
-  img,video{max-width:100%;height:auto}
-  input,select,textarea,button{font:inherit;min-width:0}
-
   :root{
-    --bg:#0b0f17; --bg2:#0e1320; --card:rgba(255,255,255,.06); --stroke:rgba(255,255,255,.10);
-    --text:#eef1f7; --muted:#97a0b6; --accent:#66e0a3; --accent2:#6ea8ff; --danger:#ff6b6b;
-    --radius:18px; --shadow:0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+    --bg: #0b0f17;
+    --bg2: #0e1320;
+    --card: rgba(255,255,255,.06);
+    --stroke: rgba(255,255,255,.10);
+    --text: #eef1f7;
+    --muted:#97a0b6;
+    --accent:#66e0a3;
+    --accent-2:#6ea8ff;
+    --danger:#ff6b6b;
+    --radius:18px; --r2:12px;
+    --shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
+    --pad:16px;
     --w:980px;
   }
   @media (prefers-color-scheme: light){
-    :root{--bg:#eef2f7;--bg2:#e9eef6;--card:#fff;--stroke:#e4e8f0;--text:#0c1324;--muted:#5f6b86;--accent:#14a86c;--accent2:#2d6bff;--shadow:0 12px 24px rgba(10,30,60,.08)}
+    :root{
+      --bg: #eef2f7; --bg2:#e9eef6;
+      --card:#ffffff;
+      --stroke:#e4e8f0;
+      --text:#0c1324;
+      --muted:#5f6b86;
+      --accent:#14a86c;
+      --accent-2:#2d6bff;
+      --shadow: 0 12px 24px rgba(10,30,60,.08);
+    }
   }
 
+  html,body{height:100%}
   body{
-    color:var(--text);
-    background:
-      radial-gradient(1200px 800px at 10% -10%, #1d2540 0%, transparent 60%),
-      radial-gradient(1000px 700px at 110% 0%, #163240 0%, transparent 55%),
-      linear-gradient(180deg,var(--bg2),var(--bg));
+    margin:0; color:var(--text);
+    background: radial-gradient(1200px 800px at 10% -10%, #1d2540 0%, transparent 60%),
+                radial-gradient(1000px 700px at 110% 0%, #163240 0%, transparent 55%),
+                linear-gradient(180deg,var(--bg2),var(--bg));
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
     letter-spacing:.1px;
   }
-
-  .wrap{
-    max-width:var(--w); margin:0 auto;
-    padding-left:max(12px,env(safe-area-inset-left));
-    padding-right:max(12px,env(safe-area-inset-right));
-    padding-top:18px; padding-bottom:18px;
-  }
-  main{padding:18px 0 calc(24px + env(safe-area-inset-bottom))}
-
+  .wrap{max-width:var(--w); margin:0 auto; padding:18px clamp(14px,3vw,22px)}
   header{
-    position:sticky; top:0; z-index:5;
+    position:sticky; top:0; z-index:3;
     backdrop-filter:saturate(140%) blur(10px);
-    background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.02));
+    background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02));
     border-bottom:1px solid var(--stroke);
   }
-
-  .brand{display:flex;align-items:center;gap:10px;min-width:0}
-  .logo{width:34px;height:34px;border-radius:10px;background:radial-gradient(120% 120% at 20% 20%,var(--accent) 0%,var(--accent2) 90%);box-shadow:0 8px 16px rgba(100,200,255,.18)}
+  .brand{display:flex;align-items:center;gap:10px}
+  .logo{
+    width:34px;height:34px;border-radius:10px;
+    background: radial-gradient(120% 120% at 20% 20%, var(--accent) 0%, var(--accent-2) 90%);
+    box-shadow: 0 8px 16px rgba(100,200,255,.18);
+  }
   h1{margin:0;font-size:18px}
-  .sub{color:var(--muted);font-size:13px;margin-top:2px;overflow-wrap:anywhere}
-
-  .tabs{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px;max-width:100%}
-  .tab{border:1px solid var(--stroke);border-radius:12px;padding:10px 14px;background:var(--card);cursor:pointer;user-select:none;box-shadow:var(--shadow);transition:transform .12s ease,background .2s ease}
+  .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .tabs{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+  .tab{
+    border:1px solid var(--stroke); border-radius:12px; padding:10px 14px;
+    background:var(--card); cursor:pointer; user-select:none;
+    box-shadow:var(--shadow); transition:transform .12s ease, background .2s ease;
+  }
   .tab:hover{transform:translateY(-1px)}
-  .tab.active{background:linear-gradient(180deg,rgba(102,224,163,.18),rgba(102,224,163,.10));border-color:rgba(102,224,163,.45)}
-  @media (max-width:375px){h1{font-size:16px}.tab{padding:9px 12px}}
+  .tab.active{background:linear-gradient(180deg,rgba(102,224,163,.18),rgba(102,224,163,.10)); border-color:rgba(102,224,163,.45)}
+  main{padding:18px 0 30px}
+  .grid{display:grid; gap:16px}
+  .card{
+    background:var(--card);
+    border:1px solid var(--stroke);
+    border-radius:var(--radius);
+    box-shadow:var(--shadow);
+    padding:18px;
+  }
+  label{display:block; margin:12px 0 6px; font-weight:700}
+  input,textarea,select{
+    width:100%; background:linear-gradient(0deg, rgba(255,255,255,.06), rgba(255,255,255,.1));
+    border:1px solid var(--stroke);
+    border-radius:12px; padding:12px 14px; color:var(--text);
+    outline:none; box-shadow: inset 0 1px 0 rgba(255,255,255,.05);
+  }
+  textarea{min-height:120px; resize:vertical}
+  input::placeholder, textarea::placeholder{color:var(--muted)}
+  .row{display:grid; gap:12px; grid-template-columns:1fr}
+  @media (min-width: 820px){ .row{grid-template-columns:1fr 1fr} }
 
-  .grid{display:grid;gap:16px}
-  .card{background:var(--card);border:1px solid var(--stroke);border-radius:var(--radius);box-shadow:var(--shadow);padding:18px;overflow:hidden;max-width:100%}
-
-  label{display:block;margin:12px 0 6px;font-weight:700}
-  input,textarea{width:100%;background:linear-gradient(0deg,rgba(255,255,255,.06),rgba(255,255,255,.1));border:1px solid var(--stroke);border-radius:12px;padding:12px 14px;color:var(--text);outline:none;box-shadow:inset 0 1px 0 rgba(255,255,255,.05)}
-  textarea{min-height:120px;resize:vertical}
-  input::placeholder,textarea::placeholder{color:var(--muted)}
-  input[type="file"]{width:100%;max-width:100%}
-
-  .row{display:grid;gap:12px;grid-template-columns:1fr}
-  @media (min-width:700px){.row{grid-template-columns:repeat(2,minmax(0,1fr))}}
-  @media (min-width:1040px){.row-3{grid-template-columns:repeat(3,minmax(0,1fr))}}
-
-  .actions{display:flex;flex-wrap:wrap;gap:10px}
-  .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 16px;border-radius:12px;border:0;cursor:pointer;font-weight:800;color:#07130b;background:linear-gradient(180deg,var(--accent),#3dd98f);box-shadow:0 12px 20px rgba(40,180,120,.25);transition:transform .12s ease;min-height:44px}
+  .btn{
+    display:inline-flex; align-items:center; justify-content:center; gap:8px;
+    padding:12px 16px; border-radius:12px; border:0; cursor:pointer; font-weight:800;
+    color:#07130b; background:linear-gradient(180deg,var(--accent),#3dd98f);
+    box-shadow:0 12px 20px rgba(40,180,120,.25);
+    transition: transform .12s ease, filter .15s ease;
+    min-height:44px;
+  }
   .btn:hover{transform:translateY(-1px)}
-  .btn.secondary{background:linear-gradient(180deg,var(--accent2),#3f7dff);color:#06112c;box-shadow:0 12px 20px rgba(70,120,255,.25)}
-  .btn.ghost{background:transparent;color:var(--text);border:1px dashed var(--stroke)}
-  .btn.danger{background:linear-gradient(180deg,#ff8787,#ff6b6b);color:#1a0c0c}
-  @media (max-width:420px){.btn{flex:1 1 100%;min-width:0}}
-
+  .btn.secondary{background:linear-gradient(180deg,var(--accent-2),#3f7dff); color:#06112c; box-shadow:0 12px 20px rgba(70,120,255,.25)}
+  .btn.ghost{background:transparent; color:var(--text); border:1px dashed var(--stroke)}
+  .btn.danger{background:linear-gradient(180deg,#ff8787,#ff6b6b); color:#1a0c0c; box-shadow:0 12px 20px rgba(255,90,90,.25)}
   .muted{color:var(--muted)}
-  .list .item{padding:12px;border:1px dashed var(--stroke);border-radius:12px;background:rgba(255,255,255,.04);margin:8px 0;overflow-wrap:anywhere;word-break:break-word;white-space:normal}
-  .chips{display:flex;flex-wrap:wrap;gap:8px;max-width:100%}
+  .list .item{padding:12px;border:1px dashed var(--stroke);border-radius:12px;background:rgba(255,255,255,.04);margin:8px 0}
+  .hint{font-size:12px;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
   .chip{font-size:12px;padding:6px 10px;border-radius:999px;border:1px solid var(--stroke);background:rgba(255,255,255,.05)}
-
-  .drop{border:2px dashed var(--stroke);border-radius:14px;padding:18px;text-align:center;color:var(--muted);transition:border-color .2s ease,background .2s ease;white-space:normal;min-height:72px;max-width:100%}
-  .drop.drag{border-color:var(--accent);background:rgba(102,224,163,.08)}
-
+  .drop{
+    border:2px dashed var(--stroke); border-radius:14px; padding:18px; text-align:center; color:var(--muted);
+    transition:border-color .2s ease, background .2s ease;
+  }
+  .drop.drag{border-color:var(--accent); background:rgba(102,224,163,.08)}
   footer{margin:26px 0 12px;text-align:center;color:var(--muted);font-size:12px}
-
-  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:50;backdrop-filter:blur(6px) saturate(140%);background:rgba(0,0,0,.35)}
-  .modal .box{width:min(92vw,460px);background:var(--card);border:1px solid var(--stroke);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+  /* Modal */
+  .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50;
+         backdrop-filter: blur(6px) saturate(140%); background:rgba(0,0,0,.35)}
+  .modal .box{width:min(92vw,420px); background:var(--card); border:1px solid var(--stroke); border-radius:16px; padding:18px; box-shadow:var(--shadow)}
 </style>
 </head>
 <body>
-<header>
-  <div class="wrap">
-    <div class="brand">
-      <div class="logo"></div>
-      <div>
-        <h1>BG Broker — мини-аппа</h1>
-        <div class="sub">Вставьте ссылку → прогноз участников/победителя. Историю загружаем во вкладке «Админ».</div>
-      </div>
-    </div>
-    <div class="tabs" role="tablist">
-      <div class="tab active" data-tab="predict" role="tab" aria-selected="true">Закупка</div>
-      <div class="tab" data-tab="browse" role="tab" aria-selected="false">Все закупки</div>
-      <div class="tab" data-tab="admin" role="tab" aria-selected="false">Админ</div>
-    </div>
-  </div>
-</header>
-
-<main class="wrap">
-  <div class="grid">
-    <!-- Закупка -->
-    <section id="predict" class="card" role="tabpanel">
-      <label>Ссылка на закупку (ЕИС 44-ФЗ / 223-ФЗ)</label>
-      <input id="tenderUrl" placeholder="https://zakupki.gov.ru/..." inputmode="url"/>
-      <div class="actions" style="margin-top:12px">
-        <button class="btn" id="analyze">Анализ</button>
-        <button class="btn ghost" id="clearPred">Очистить</button>
-        <div class="muted">Под капотом: заказчик, ОКПД2, регион → частоты побед.</div>
-      </div>
-      <div id="factsBox" class="chips" style="margin-top:10px"></div>
-      <div id="outPredict" class="list" style="margin-top:12px" aria-live="polite"></div>
-    </section>
-
-    <!-- Все закупки -->
-    <section id="browse" class="card" style="display:none" role="tabpanel">
-      <div class="row">
-        <div><label>Фильтр по рег. номеру</label><input id="fltReg" placeholder="Напр.: 0818500000825..." /></div>
-        <div><label>Фильтр по закону</label><input id="fltLaw" placeholder="44-ФЗ или 223-ФЗ" /></div>
-      </div>
-      <div class="actions" style="margin-top:12px">
-        <button class="btn secondary" id="browseBtn">Показать закупки</button>
-        <button class="btn ghost" id="clearBrowse">Сбросить фильтры</button>
-      </div>
-      <div class="muted" style="margin-top:8px">Источник — загруженный CSV (7 колонок поддерживаются; расширенный формат повышает точность).</div>
-      <div id="outBrowse" class="list" style="margin-top:12px" aria-live="polite"></div>
-    </section>
-
-    <!-- Админ -->
-    <section id="admin" class="card" style="display:none" role="tabpanel">
-      <h3 style="margin:0 0 6px">Загрузка истории и обучение</h3>
-      <div class="row">
+  <header>
+    <div class="wrap">
+      <div class="brand">
+        <div class="logo"></div>
         <div>
-          <label>Загрузить историю (CSV)</label>
-          <input type="file" id="csv" accept=".csv,text/csv"/>
-          <div class="drop" id="drop">или перетащите CSV</div>
-          <div class="muted" style="margin-top:6px">
-            Совместимы 2 формата:<br>
-            <b>Базовый (7):</b> company,inn,reg_number,law,winner_email,dmr_name,dmr_phone<br>
-            <b>Расширенный (+6):</b> + customer_inn,okpd2,region,method,nmc,date (YYYY-MM-DD)
-          </div>
-          <div class="actions" style="margin-top:10px">
-            <button class="btn" id="loadDemo">Загрузить демо-данные</button>
-            <button class="btn secondary" id="train">Переобучить</button>
-            <button class="btn danger" id="clear">Очистить историю</button>
-          </div>
-
-          <label style="margin-top:14px">Вставить CSV текстом (если файл не выбирается на iPhone)</label>
-          <textarea id="csvText" placeholder='company,inn,reg_number,law,winner_email,dmr_name,dmr_phone[,customer_inn,okpd2,region,method,nmc,date]'></textarea>
-          <div class="actions" style="margin-top:8px">
-            <button class="btn" id="parseText">Импорт из текста</button>
-            <button class="btn ghost" id="clearText">Очистить поле</button>
-          </div>
-        </div>
-
-        <div>
-          <label>Статус модели</label>
-          <div id="modelInfo" class="list"><div class="item">Исторических записей: 0<br/>Версия модели: —</div></div>
-
-          <label style="margin-top:12px">Перенос между устройствами (без облака)</label>
-          <div class="actions">
-            <button class="btn" id="exportBtn">Скачать bg-model.json</button>
-            <input type="file" id="importFile" accept=".json" style="max-width:260px"/>
-          </div>
-
-          <label style="margin-top:14px">Логи</label>
-          <div id="logs" class="list" style="min-height:80px">
-            <div class="item muted">Здесь будут появляться сообщения о статусе/ошибках.</div>
-          </div>
+          <h1>BG Broker — мини-аппа</h1>
+          <div class="sub">Вставьте ссылку → прогноз участников/победителя. Историю загружаем во вкладке «Админ».</div>
         </div>
       </div>
-    </section>
-  </div>
-</main>
+      <div class="tabs" role="tablist">
+        <div class="tab active" data-tab="predict" role="tab" aria-selected="true">Закупка</div>
+        <div class="tab" data-tab="browse" role="tab" aria-selected="false">Все закупки</div>
+        <div class="tab" data-tab="admin" role="tab" aria-selected="false">Админ</div>
+      </div>
+    </div>
+  </header>
 
-<footer>BG Broker · ориентировочный прогноз. Для финального решения — ЕИС/банк.</footer>
+  <main class="wrap">
+    <div class="grid">
+      <!-- Закупка -->
+      <section id="predict" class="card" role="tabpanel">
+        <label>Ссылка на закупку (ЕИС 44-ФЗ / 223-ФЗ)</label>
+        <input id="tenderUrl" placeholder="https://zakupki.gov.ru/..." inputmode="url"/>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+          <button class="btn" id="analyze">Анализ</button>
+          <button class="btn ghost" id="clearPred">Очистить</button>
+          <div class="hint">Контекст из ЕИС подключим позже. Сейчас используется рейтинг по историческим победам.</div>
+        </div>
+        <div id="outPredict" class="list" style="margin-top:12px" aria-live="polite"></div>
+      </section>
 
-<!-- Модалка пароля -->
-<div id="pwdModal" class="modal" aria-hidden="true">
-  <div class="box">
-    <h3 style="margin:0 0 6px">Доступ к разделу «Админ»</h3>
-    <div class="muted" style="margin-bottom:8px">Пароль: <b>admin</b>. Можно «Запомнить» на этом устройстве.</div>
-    <input id="pwdInput" type="password" placeholder="Пароль"/>
-    <label style="margin-top:8px"><input type="checkbox" id="pwdRemember"> Запомнить на этом устройстве</label>
-    <div class="actions" style="justify-content:flex-end;margin-top:12px">
-      <button class="btn" id="pwdOk">Войти</button>
-      <button class="btn ghost" id="pwdCancel">Отмена</button>
+      <!-- Все закупки -->
+      <section id="browse" class="card" style="display:none" role="tabpanel">
+        <div class="row">
+          <div>
+            <label>Фильтр по рег. номеру</label>
+            <input id="fltReg" placeholder="Напр.: 0818500000825..."/>
+          </div>
+          <div>
+            <label>Фильтр по закону</label>
+            <input id="fltLaw" placeholder="44-ФЗ или 223-ФЗ"/>
+          </div>
+        </div>
+        <div style="margin-top:12px;display:flex;gap:10px;flex-wrap:wrap">
+          <button class="btn secondary" id="browseBtn">Показать закупки</button>
+          <button class="btn ghost" id="clearBrowse">Сбросить фильтры</button>
+        </div>
+        <div class="hint" style="margin-top:8px">Источник — загруженный CSV (7 колонок). Для каждой компании выводим ИНН, почту и ЛПР.</div>
+        <div id="outBrowse" class="list" style="margin-top:12px" aria-live="polite"></div>
+      </section>
+
+      <!-- Админ -->
+      <section id="admin" class="card" style="display:none" role="tabpanel">
+        <h3 style="margin:0 0 6px">Загрузка истории и обучение</h3>
+
+        <div class="row">
+          <div>
+            <label>Загрузить историю (CSV, 7 колонок по порядку)</label>
+            <input type="file" id="csv" accept=".csv,text/csv"/>
+            <div class="drop" id="drop">или перетащите CSV сюда</div>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn" id="loadDemo">Загрузить демо-данные</button>
+              <button class="btn secondary" id="train">Переобучить</button>
+              <button class="btn danger" id="clear">Очистить историю</button>
+            </div>
+            <label style="margin-top:14px">Вставить CSV текстом (если файл не выбирается на iPhone)</label>
+            <textarea id="csvText" placeholder='company,inn,reg_number,law,winner_email,dmr_name,dmr_phone\n...'></textarea>
+            <div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn" id="parseText">Импорт из текста</button>
+              <button class="btn ghost" id="clearText">Очистить поле</button>
+            </div>
+          </div>
+          <div>
+            <label>Статус модели</label>
+            <div id="modelInfo" class="list">
+              <div class="item">Исторических записей: 0<br/>Версия модели: —</div>
+            </div>
+
+            <label style="margin-top:12px">Перенос между устройствами (без облака)</label>
+            <div class="chips" style="margin-bottom:8px">
+              <div class="chip">Экспорт JSON → на другое устройство</div>
+              <div class="chip">Импорт JSON ← из файла</div>
+            </div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn" id="exportBtn">Скачать bg-model.json</button>
+              <input type="file" id="importFile" accept=".json" style="max-width:260px"/>
+            </div>
+
+            <label style="margin-top:14px">Логи</label>
+            <div id="logs" class="list" style="min-height:80px">
+              <div class="item muted">Здесь будут появляться сообщения об ошибках и статусе.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer>BG Broker · быстрый ориентировочный прогноз. Для финального решения — экспертиза банка и ЕИС API.</footer>
+
+  <!-- Пароль -->
+  <div id="pwdModal" class="modal" aria-hidden="true">
+    <div class="box">
+      <h3 style="margin:0 0 6px">Доступ к разделу «Админ»</h3>
+      <div class="muted" style="margin-bottom:8px">Введите пароль (подсказка: <b>admin</b>)</div>
+      <input id="pwdInput" type="password" placeholder="Пароль"/>
+      <label style="margin-top:8px"><input type="checkbox" id="pwdRemember"> Запомнить на этом устройстве</label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:12px">
+        <button class="btn" id="pwdOk">Войти</button>
+        <button class="btn ghost" id="pwdCancel">Отмена</button>
+      </div>
     </div>
   </div>
-</div>
 
 <script>
-/* Telegram init */
-try{Telegram.WebApp.ready();Telegram.WebApp.expand()}catch(e){}
+/* Init Telegram */
+try { Telegram.WebApp.ready(); Telegram.WebApp.expand(); } catch(e) {}
 
-/* ===== helpers & state ===== */
-const IS_IOS=/iPad|iPhone|iPod/.test(navigator.userAgent)&&!window.MSStream;
-const LS='bg_miniapp_store_v4', LS_ADMIN='bg_admin_persist', SS_ADMIN='bg_admin_unlocked';
-const $=s=>document.querySelector(s);
-const log=(m,t='info')=>{const b=$('#logs');const d=document.createElement('div');d.className='item';if(t==='err')d.style.borderColor='rgba(255,107,107,.5)';if(t==='ok')d.style.borderColor='rgba(102,224,163,.5)';d.innerHTML=m;b.prepend(d)};
-const store={rows:[],model:null,version:null,idx:{bySupp:{},byCustSupp:{},byOkpdSupp:{},byRegSupp:{},recentSupp:{}}};
+/* ===== Helpers ===== */
+const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+const LS_KEY='bg_miniapp_store_v1', LS_ADMIN='bg_admin_persist', SS_ADMIN='bg_admin_unlocked';
+const $ = (s)=>document.querySelector(s);
+const log = (msg, type='info')=>{
+  const box = $('#logs');
+  const div = document.createElement('div');
+  div.className = 'item';
+  if(type==='err') div.style.borderColor = 'rgba(255,107,107,.5)';
+  if(type==='ok')  div.style.borderColor = 'rgba(102,224,163,.5)';
+  div.innerHTML = msg;
+  box.prepend(div);
+};
 
-function clean(s){return (s??'').toString().replace(/\u00A0/g,' ').replace(/\s+/g,' ').replace(/\uFFFD/g,'').trim()}
-function escapeHTML(s){return clean(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]))}
-function extractRegNumber(url){try{const u=new URL(url);return u.searchParams.get('regNumber')||''}catch{return''}}
-function guessLaw(url){const s=url.toLowerCase();if(s.includes('44-фз')||s.includes('44fz'))return'44-ФЗ';if(s.includes('223-фз')||s.includes('223fz'))return'223-ФЗ';return''}
-function save(){localStorage.setItem(LS,JSON.stringify({rows:store.rows,model:store.model,version:store.version,idx:store.idx}))}
-function load(){try{const r=localStorage.getItem(LS);if(!r)return false;const d=JSON.parse(r);if(Array.isArray(d.rows)){store.rows=d.rows;store.model=d.model||null;store.version=d.version||null;store.idx=d.idx||store.idx;return true}}catch{}return false}
-function updateModelInfo(){$('#modelInfo').innerHTML=`<div class="item">Исторических записей: <b>${store.rows.length}</b><br>Версия модели: <b>${store.version||'—'}</b></div>`}
+const store = { rows: [], model:null, version:null };
 
-/* ===== CSV → rows (7 или 13 колонок) ===== */
+function clean(s){ return (s??'').toString().replace(/\u00A0/g,' ').replace(/\s+/g,' ').replace(/\uFFFD/g,'').trim() }
+function escapeHTML(s){return clean(s).replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;', "'":'&#39;' }[m]))}
+function extractRegNumber(url){ try{ const u=new URL(url); return u.searchParams.get('regNumber')||'' }catch{ return '' } }
+function guessLawFromUrl(url){ const s=url.toLowerCase(); if(s.includes('44-фз')||s.includes('44fz'))return'44-ФЗ'; if(s.includes('223-фз')||s.includes('223fz'))return'223-ФЗ'; return '' }
+
+function saveLocal(){ localStorage.setItem(LS_KEY, JSON.stringify({rows:store.rows, model:store.model, version:store.version})) }
+function loadLocal(){
+  try{
+    const raw=localStorage.getItem(LS_KEY); if(!raw) return false;
+    const dat=JSON.parse(raw);
+    if(Array.isArray(dat.rows)){ store.rows=dat.rows; store.model=dat.model||null; store.version=dat.version||null; return true; }
+  }catch{}
+  return false;
+}
+
 function toRows(res){
   const rows=[];
   for(const r of res.data){
-    if(!r||!r.length)continue;
-    while(r.length<13)r.push('');
+    if(!r || !r.length) continue;
+    while(r.length<7) r.push('');
     const rec={
-      company:clean(r[0]),inn:clean(r[1]),reg_number:clean(r[2]),law:clean(r[3]).toUpperCase(),
-      winner_email:clean(r[4]),dmr_name:clean(r[5]),dmr_phone:clean(r[6]),
-      customer_inn:clean(r[7]),okpd2:clean(r[8]),region:clean(r[9]),method:clean(r[10]),nmc:clean(r[11]),date:clean(r[12])
+      company:clean(r[0]), inn:clean(r[1]), reg_number:clean(r[2]),
+      law:clean(r[3]).toUpperCase(), winner_email:clean(r[4]),
+      dmr_name:clean(r[5]), dmr_phone:clean(r[6]),
     };
-    const hints=["company","inn","reg_number","law","winner_email","dmr_name","dmr_phone","customer_inn","okpd2","region","method","nmc","date"];
-    const header=hints.some(h=>(rec.company||'').toLowerCase().includes(h)||(rec.inn||'').toLowerCase().includes(h));
-    if(header)continue; if(!rec.company)continue; rows.push(rec);
+    const headerHints=["company","inn","reg_number","law","winner_email","dmr_name","dmr_phone"];
+    const maybeHeader=headerHints.some(h=>rec.company.toLowerCase().includes(h)||rec.inn.toLowerCase().includes(h));
+    if(maybeHeader) continue;
+    if(!rec.company) continue;
+    rows.push(rec);
   }
   return rows;
 }
 
-/* ===== индексы и модель ===== */
-function buildIndices(rows){
-  const bySupp={},byCustSupp={},byOkpdSupp={},byRegSupp={},recentSupp={};
-  const now=Date.now(), day=86400000;
-  for(const r of rows){
-    const supp=r.inn||r.company; if(!supp)continue;
-    bySupp[supp]=(bySupp[supp]||0)+1;
-    if(r.customer_inn){byCustSupp[r.customer_inn+'|'+supp]=(byCustSupp[r.customer_inn+'|'+supp]||0)+1}
-    if(r.okpd2){byOkpdSupp[r.okpd2.split('.')[0]+'|'+supp]=(byOkpdSupp[r.okpd2.split('.')[0]+'|'+supp]||0)+1}
-    if(r.region){byRegSupp[r.region.toLowerCase()+'|'+supp]=(byRegSupp[r.region.toLowerCase()+'|'+supp]||0)+1}
-    if(r.date){const t=Date.parse(r.date);if(!Number.isNaN(t)&&now-t<=180*day){recentSupp[supp]=(recentSupp[supp]||0)+1}}
-  }
-  store.idx={bySupp,byCustSupp,byOkpdSupp,byRegSupp,recentSupp};
+function trainModel(rows){
+  const bySupplier={}, byLawSupplier={};
+  rows.forEach(r=>{
+    const c=r.company; if(!c) return;
+    bySupplier[c]=bySupplier[c]||{wins:0, inn:r.inn, email:r.winner_email, dmr:r.dmr_name, phone:r.dmr_phone};
+    bySupplier[c].wins++;
+    if(r.law){ const key=r.law+'|'+c; byLawSupplier[key]=(byLawSupplier[key]||0)+1; }
+  });
+  return {bySupplier, byLawSupplier};
 }
-function train(rows){buildIndices(rows);return{weights:{wCust:2.0,wOkpd:1.2,wReg:0.6,wRecent:0.5,wBase:0.3}}}
+function updateModelInfo(){
+  $('#modelInfo').innerHTML=`<div class="item">Исторических записей: <b>${store.rows.length}</b><br>Версия модели: <b>${store.version||'—'}</b></div>`;
+}
 
-/* ===== CSV импорт (iOS safe) ===== */
-async function parseCsvText(text,useWorker=true){return new Promise((resolve,reject)=>{Papa.parse(text,{header:false,skipEmptyLines:"greedy",worker:useWorker,complete:r=>resolve(toRows(r)),error:e=>reject(e)})})}
-$('#csv').addEventListener('change',async e=>{
-  const f=e.target.files[0];if(!f)return;
-  try{const text=await f.text();const rows=await parseCsvText(text,!IS_IOS);if(!rows.length){log('CSV разобран, но записей нет.','err');return}
-    store.rows=rows;store.model=train(rows);store.version='csv-'+Date.now();save();updateModelInfo();log(`CSV загружен: ${rows.length} записей.`,'ok')}
-  catch(err){log('Ошибка CSV: '+(err?.message||err),'err')}
+/* ===== Bootstrap ===== */
+(function(){
+  if(loadLocal()){ updateModelInfo(); log('Локальная модель загружена', 'ok'); }
+  if(localStorage.getItem(LS_ADMIN)==='1'){ sessionStorage.setItem(SS_ADMIN,'1'); }
+})();
+
+/* ===== Admin auth ===== */
+const modal=$('#pwdModal'), pwd=$('#pwdInput'), remember=$('#pwdRemember');
+function openPwd(){ modal.style.display='flex'; modal.setAttribute('aria-hidden','false'); setTimeout(()=>pwd.focus(),50) }
+function closePwd(){ modal.style.display='none'; modal.setAttribute('aria-hidden','true') }
+$('#pwdCancel').onclick=closePwd;
+$('#pwdOk').onclick=()=>{
+  if(pwd.value==='admin'){
+    sessionStorage.setItem(SS_ADMIN,'1');
+    if(remember.checked) localStorage.setItem(LS_ADMIN,'1'); else localStorage.removeItem(LS_ADMIN);
+    closePwd(); switchTab('admin');
+  } else { log('Неверный пароль', 'err'); }
+}
+pwd.addEventListener('keydown',e=>{ if(e.key==='Enter') $('#pwdOk').click() });
+
+/* ===== Tabs ===== */
+function switchTab(id){
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.toggle('active', t.dataset.tab===id);
+    t.setAttribute('aria-selected', t.dataset.tab===id ? 'true':'false');
+  });
+  ['predict','browse','admin'].forEach(sec=>{
+    document.getElementById(sec).style.display=(sec===id)?'block':'none';
+  });
+}
+document.querySelectorAll('.tab').forEach(t=>{
+  t.onclick=()=>{
+    const id=t.dataset.tab;
+    if(id==='admin' && !sessionStorage.getItem(SS_ADMIN)) { openPwd(); return; }
+    switchTab(id);
+  }
 });
-const drop=$('#drop');
-['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('drag')}));
-['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('drag')}));
-drop.addEventListener('drop',async e=>{
-  const f=e.dataTransfer.files?.[0];if(!f)return;$('#csv').files=e.dataTransfer.files;
-  try{const text=await f.text();const rows=await parseCsvText(text,true);if(!rows.length){log('CSV пуст/не распознан.','err');return}
-    store.rows=rows;store.model=train(rows);store.version='csv-'+Date.now();save();updateModelInfo();log(`CSV загружен (dnd): ${rows.length}.`,'ok')}
-  catch(err){log('Ошибка dnd: '+(err?.message||err),'err')}
+
+/* ===== CSV import — iPhone-safe + резервные методы ===== */
+async function parseCsvText(text,{useWorker=true}={}){
+  return new Promise((resolve,reject)=>{
+    Papa.parse(text,{
+      header:false, skipEmptyLines:"greedy",
+      worker: useWorker,         // iOS: false
+      complete: r=>resolve(toRows(r)),
+      error: e=>reject(e)
+    });
+  });
+}
+// File input
+$('#csv').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const text = IS_IOS ? await f.text() : await f.text(); // iOS и прочее — одинаково, но ниже worker зависит от платформы
+    const rows = await parseCsvText(text,{useWorker:!IS_IOS});
+    if(!rows.length){ log('CSV разобран, но записей нет. Убедитесь, что сохранён как «CSV UTF-8».', 'err'); return; }
+    store.rows = rows; store.model = trainModel(rows); store.version='csv-'+Date.now();
+    saveLocal(); updateModelInfo(); log(`CSV загружен: ${rows.length} записей.`, 'ok');
+  }catch(err){ log('Ошибка загрузки CSV: '+(err?.message||err), 'err'); }
 });
-$('#parseText').onclick=async()=>{
-  const txt=$('#csvText').value.trim();if(!txt){log('Поле CSV пустое.','err');return}
-  try{const rows=await parseCsvText(txt,false);if(!rows.length){log('Текст распознан, но записей нет.','err');return}
-    store.rows=rows;store.model=train(rows);store.version='text-'+Date.now();save();updateModelInfo();log(`Импорт из текста: ${rows.length}.`,'ok')}
-  catch(err){log('Парсинг текста: '+(err?.message||err),'err')}
+// Paste textarea
+$('#parseText').onclick = async ()=>{
+  const text = $('#csvText').value.trim();
+  if(!text){ log('Поле с CSV пустое.', 'err'); return; }
+  try{
+    const rows = await parseCsvText(text,{useWorker:false});
+    if(!rows.length){ log('Текст распознан, но записей нет. Проверьте разделители.', 'err'); return; }
+    store.rows = rows; store.model = trainModel(rows); store.version='text-'+Date.now();
+    saveLocal(); updateModelInfo(); log(`Импорт из текста: ${rows.length} записей.`, 'ok');
+  }catch(err){ log('Ошибка парсинга текста: '+(err?.message||err), 'err'); }
 };
-$('#clearText').onclick=()=>$('#csvText').value='';
+$('#clearText').onclick = ()=> $('#csvText').value = '';
+// Drag&drop (desktop)
+const drop=$('#drop');
+['dragenter','dragover'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.add('drag') }));
+['dragleave','drop'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.remove('drag') }));
+drop.addEventListener('drop', async e=>{
+  const file = e.dataTransfer.files?.[0]; if(!file) return;
+  $('#csv').files = e.dataTransfer.files; // чтобы пользователь видел выбранный файл
+  try{
+    const text = await file.text();
+    const rows = await parseCsvText(text,{useWorker:true});
+    if(!rows.length){ log('CSV распознан, но записей нет.', 'err'); return; }
+    store.rows = rows; store.model = trainModel(rows); store.version='csv-'+Date.now();
+    saveLocal(); updateModelInfo(); log(`CSV загружен (dnd): ${rows.length} записей.`, 'ok');
+  }catch(err){ log('Ошибка dnd: '+(err?.message||err), 'err'); }
+});
 
+/* ===== Demo, retrain, clear ===== */
 $('#loadDemo').onclick=()=>{
   const demo=[
-    'ООО "СтройКрафт",7734567890,0818500000825001001,44-ФЗ,info@stroikraft.ru,Иванов И.И.,+7 900 000-00-01,7707083893,42.21.10.110,Москва,ЭАукцион,1200000,2025-03-01',
-    'ООО "ТеплоСервис",7711111111,0818500000825002002,44-ФЗ,hello@teplo.ru,Петров П.П.,+7 900 000-00-02,7707083893,42.21.10.110,Москва,ЭАукцион,950000,2025-01-15',
-    'ООО "ИнжСтрой",7722222222,0818500000825003003,223-ФЗ,mail@inz.ru,Сидоров С.С.,+7 900 000-00-03,7707083893,28.99.31.000,Москва,Конкурс,3000000,2024-12-20',
-    'ООО "ЭнергоПроект",7700000000,0818500000825004004,44-ФЗ,office@energo.pro,Кузнецов К.К.,+7 900 000-00-04,7811465870,42.21.10.110,СПб,ЭАукцион,2100000,2025-02-10',
-    'ООО "ГидроМонтаж",7733333333,0818500000825005005,223-ФЗ,contact@hydro.ru,Смирнов С.С.,+7 900 000-00-05,7811465870,42.21.10.110,СПб,Конкурс,1100000,2025-04-12',
-    'ООО "СтройКрафт",7734567890,0818500000825006006,44-ФЗ,info@stroikraft.ru,Иванов И.И.,+7 900 000-00-01,7707083893,42.21.10.110,Москва,ЭАукцион,800000,2025-05-20'
+    'ООО "СтройКрафт",7734567890,0818500000825001001,44-ФЗ,info@stroikraft.ru,Иванов И.И.,+7 900 000-00-01',
+    'ООО "ТеплоСервис",7711111111,0818500000825002002,44-ФЗ,hello@teplo.ru,Петров П.П.,+7 900 000-00-02',
+    'ООО "ИнжСтрой",7722222222,0818500000825003003,223-ФЗ,mail@inz.ru,Сидоров С.С.,+7 900 000-00-03',
+    'ООО "ЭнергоПроект",7700000000,0818500000825004004,44-ФЗ,office@energo.pro,Кузнецов К.К.,+7 900 000-00-04',
+    'ООО "ГидроМонтаж",7733333333,0818500000825005005,223-ФЗ,contact@hydro.ru,Смирнов С.С.,+7 900 000-00-05',
+    'ООО "СтройКрафт",7734567890,0818500000825006006,44-ФЗ,info@stroikraft.ru,Иванов И.И.,+7 900 000-00-01'
   ].join('\n');
-  Papa.parse(demo,{header:false,skipEmptyLines:"greedy",complete:r=>{const rows=toRows(r);store.rows=rows;store.model=train(rows);store.version='demo-1';save();updateModelInfo();log('Демо-данные загружены.','ok')}})
+  Papa.parse(demo,{header:false,skipEmptyLines:"greedy",complete:(r)=>{
+    const rows = toRows(r);
+    store.rows=rows; store.model=trainModel(rows); store.version='demo-1';
+    saveLocal(); updateModelInfo(); log('Демо-данные загружены.', 'ok');
+  }});
 };
-
 $('#train').onclick=()=>{
-  if(!store.rows.length){log('Сначала загрузите CSV/текст.','err');return}
-  store.model=train(store.rows);store.version='retrain-'+Date.now();save();updateModelInfo();log('Переобучение завершено.','ok')
+  if(!store.rows.length){ log('Сначала загрузите CSV или вставьте текст.', 'err'); return; }
+  store.model=trainModel(store.rows); store.version='retrain-'+Date.now();
+  saveLocal(); updateModelInfo(); log('Переобучение завершено.', 'ok');
 };
-
 $('#clear').onclick=()=>{
-  store.rows=[];store.model=null;store.version=null;store.idx={bySupp:{},byCustSupp:{},byOkpdSupp:{},byRegSupp:{},recentSupp:{}};
-  localStorage.removeItem(LS);updateModelInfo();log('История очищена.','ok')
+  store.rows=[]; store.model=null; store.version=null; localStorage.removeItem(LS_KEY);
+  updateModelInfo(); log('История и модель очищены.', 'ok');
 };
 
-/* ===== экспорт/импорт JSON ===== */
-function downloadJSON(name,data){const blob=new Blob([JSON.stringify(data)],{type:'application/json'});const url=URL.createObjectURL(blob);const a=document.createElement('a');a.href=url;a.download=name;document.body.appendChild(a);a.click();URL.revokeObjectURL(url);a.remove()}
-$('#exportBtn').onclick=()=>{if(!store.rows.length){log('Нет данных для экспорта.','err');return}downloadJSON('bg-model.json',{rows:store.rows,model:store.model,version:store.version,idx:store.idx});log('Экспортировано.','ok')}
-$('#importFile').addEventListener('change',async e=>{
-  const f=e.target.files[0];if(!f)return;
-  try{const d=JSON.parse(await f.text());if(!Array.isArray(d.rows)||!d.idx){log('Неверный JSON.','err');return}
-    store.rows=d.rows;store.model=d.model||{weights:{wCust:2,wOkpd:1.2,wReg:0.6,wRecent:0.5,wBase:0.3}};store.version=d.version||'import';store.idx=d.idx;save();updateModelInfo();log('Импортировано.','ok')}
-  catch(err){log('Ошибка импорта: '+(err?.message||err),'err')}
+/* ===== Export / Import JSON ===== */
+function downloadJSON(name, data){
+  const blob=new Blob([JSON.stringify(data)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click();
+  URL.revokeObjectURL(url); a.remove();
+}
+$('#exportBtn').onclick=()=>{
+  if(!store.model || !store.rows.length){ log('Нет данных для экспорта.', 'err'); return; }
+  downloadJSON('bg-model.json', {rows:store.rows, model:store.model, version:store.version});
+  log('Файл bg-model.json скачан.', 'ok');
+};
+$('#importFile').addEventListener('change', async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{
+    const data=JSON.parse(await f.text());
+    if(!Array.isArray(data.rows)||!data.model){ log('Неверный формат JSON.', 'err'); return; }
+    store.rows=data.rows; store.model=data.model; store.version=data.version||'import';
+    saveLocal(); updateModelInfo(); log('Импорт JSON выполнен.', 'ok');
+  }catch(err){ log('Ошибка импорта JSON: '+(err?.message||err), 'err'); }
 });
 
-/* ===== пароль на админ ===== */
-const modal=$('#pwdModal'), pwd=$('#pwdInput'), remember=$('#pwdRemember');
-function openPwd(){modal.style.display='flex';modal.setAttribute('aria-hidden','false');setTimeout(()=>pwd.focus(),50)}
-function closePwd(){modal.style.display='none';modal.setAttribute('aria-hidden','true')}
-$('#pwdCancel').onclick=closePwd;
-$('#pwdOk').onclick=()=>{if(pwd.value==='admin'){sessionStorage.setItem(SS_ADMIN,'1');if(remember.checked)localStorage.setItem(LS_ADMIN,'1');else localStorage.removeItem(LS_ADMIN);closePwd();switchTab('admin')}else{log('Неверный пароль','err')}}
-pwd.addEventListener('keydown',e=>{if(e.key==='Enter')$('#pwdOk').click()})
-
-function switchTab(id){document.querySelectorAll('.tab').forEach(t=>{t.classList.toggle('active',t.dataset.tab===id);t.setAttribute('aria-selected',t.dataset.tab===id?'true':'false')});['predict','browse','admin'].forEach(sec=>document.getElementById(sec).style.display=(sec===id)?'block':'none')}
-document.querySelectorAll('.tab').forEach(t=>t.onclick=()=>{const id=t.dataset.tab;if(id==='admin'&&!sessionStorage.getItem(SS_ADMIN)){openPwd();return}switchTab(id)})
-;(function boot(){ if(load()){updateModelInfo();log('Локальная модель загружена','ok')} if(localStorage.getItem(LS_ADMIN)==='1')sessionStorage.setItem(SS_ADMIN,'1') })();
-
-/* ===== парсинг закупки через r.jina.ai (без CORS) и скоринг ===== */
-async function fetchTenderFacts(url){
-  const proxy='https://r.jina.ai/http://'+url.replace(/^https?:\/\//,''); let txt='';
-  try{const r=await fetch(proxy);txt=await r.text()}catch(e){log('Не удалось получить страницу закупки','err');return{}}
-  const t=txt.replace(/\s+/g,' '); const law=guessLaw(url); const reg=extractRegNumber(url);
-  const customerInn=(/ИНН[^0-9]{0,10}(\d{10})/.exec(t)||[])[1]||''; 
-  const okpd2=(/(ОКПД|ОКПД2)[^0-9A-ZА-Я]{0,10}([0-9]{2}\.[0-9]{2}(\.[0-9]{2}(\.[0-9]{3})?)?)/i.exec(t)||[])[2]||'';
-  const region=((/Регион поставки[^А-ЯA-Z0-9]{0,20}([А-Яа-яA-Za-z\-\s"]{3,40})/.exec(t)||[])[1]||(/Место поставки[^А-ЯA-Z0-9]{0,0}([А-Яа-яA-Za-z\-\s"]{3,40})/.exec(t)||[])[1]||'').trim();
-  const method=((/Способ (определения|закупки)[^А-ЯA-Z0-9]{0,20}([А-Яа-яA-Za-z\-\s"]{3,40})/.exec(t)||[])[2]||'').trim();
-  const nmc=((/(НМЦК|Начальная[^а-яA-Z]{0,10}цена)[^0-9]{0,10}([0-9\s]+(?:,\d{2})?)/i.exec(t)||[])[2]||'').trim();
-  return {reg,law,customerInn,okpd2,region,method,nmc};
-}
-function scoreSuppliers(fx){
-  const W=store.model?.weights||{wCust:2.0,wOkpd:1.2,wReg:0.6,wRecent:0.5,wBase:0.3};
-  const {bySupp,byCustSupp,byOkpdSupp,byRegSupp,recentSupp}=store.idx;
-  const cand=new Map();
-  if(fx.customerInn){for(const k in byCustSupp){if(k.startsWith(fx.customerInn+'|'))cand.set(k.split('|')[1],true)}}
-  if(fx.okpd2){const p=fx.okpd2.split('.')[0];for(const k in byOkpdSupp){if(k.startsWith(p+'|'))cand.set(k.split('|')[1],true)}}
-  if(fx.region){const key=fx.region.toLowerCase();for(const k in byRegSupp){if(k.startsWith(key+'|'))cand.set(k.split('|')[1],true)}}
-  if(!cand.size){Object.keys(bySupp).slice(0,200).forEach(inn=>cand.set(inn,true))}
-  const items=[];
-  cand.forEach((_,inn)=>{
-    const base=bySupp[inn]||0;
-    const withCust=fx.customerInn?(byCustSupp[fx.customerInn+'|'+inn]||0):0;
-    const okpd=fx.okpd2?(byOkpdSupp[fx.okpd2.split('.')[0]+'|'+inn]||0):0;
-    const reg=fx.region?(byRegSupp[(fx.region||'').toLowerCase()+'|'+inn]||0):0;
-    const recent=recentSupp[inn]||0;
-    const score=W.wCust*withCust+W.wOkpd*okpd+W.wReg*reg+W.wRecent*recent+W.wBase*base;
-    const sample=store.rows.find(r=>(r.inn||r.company)===inn)||{};
-    items.push({inn,company:sample.company||('Поставщик '+inn),email:sample.winner_email||'',dmr:sample.dmr_name||'',phone:sample.dmr_phone||'',withCust,okpd,reg,recent,base,score});
-  });
-  items.sort((a,b)=>b.score-a.score);
-  return items.slice(0,5);
-}
-
-/* ===== Анализ закупки ===== */
-$('#analyze').onclick=async()=>{
+/* ===== Analyze ===== */
+$('#analyze').onclick=()=>{
   const url=$('#tenderUrl').value.trim();
-  if(!url){log('Вставьте ссылку на закупку.','err');return}
-  if(!store.rows.length){log('Нет истории. Загрузите CSV в «Админ».','err');return}
-  const fx=await fetchTenderFacts(url);
-  const chips=$('#factsBox');chips.innerHTML='';
-  [['Заказчик ИНН',fx.customerInn],['ОКПД2',fx.okpd2],['Регион',fx.region],['Способ',fx.method],['НМЦК',fx.nmc],['Закон',fx.law||guessLaw(url)]]
-    .forEach(([k,v])=>{if(v){const c=document.createElement('div');c.className='chip';c.textContent=`${k}: ${v}`;chips.appendChild(c)}});
-  const items=scoreSuppliers(fx);
-  const out=$('#outPredict');out.innerHTML='';
-  const head=document.createElement('div');head.className='item';
-  head.innerHTML=`<b>Закупка:</b> ${escapeHTML(fx.reg||extractRegNumber(url)||'—')}<br><span class="muted">Источник прогноза — история побед по заказчику/ОКПД/региону/свежей активности.</span>`;
+  if(!url){ log('Вставьте ссылку на закупку.', 'err'); return; }
+  if(!store.model || !store.rows.length){ log('Нет данных для прогноза. Загрузите историю.', 'err'); return; }
+  const reg=extractRegNumber(url) || '—';
+  const law=guessLawFromUrl(url);
+
+  const items=Object.entries(store.model.bySupplier).map(([company,m])=>{
+    const winsLaw = law ? (store.model.byLawSupplier[(law+'|'+company)]||0) : 0;
+    const score = law ? (winsLaw*2 + m.wins*0.5) : m.wins;
+    return {company,inn:m.inn||'—',email:m.email||'—',dmr:m.dmr||'—',phone:m.phone||'—',wins:m.wins,winsLaw,score};
+  }).sort((a,b)=>b.score-a.score).slice(0,5);
+
+  const out=$('#outPredict'); out.innerHTML='';
+  const head=document.createElement('div'); head.className='item';
+  head.innerHTML=`<b>Закупка:</b> ${escapeHTML(reg)}<br><span class="muted">Закон (угадан): <b>${escapeHTML(law||'—')}</b>. Источник — частоты побед.</span>`;
   out.appendChild(head);
-  if(!items.length){out.innerHTML+='<div class="item muted">Недостаточно данных для прогноза.</div>';return}
+
+  if(!items.length){ out.innerHTML+='<div class="item muted">Недостаточно данных для прогноза.</div>'; return; }
+
   items.forEach((it,i)=>{
-    const why=[it.withCust?`с этим заказчиком: <b>${it.withCust}</b>`:null,it.okpd?`по ОКПД2: <b>${it.okpd}</b>`:null,it.reg?`в регионе: <b>${it.reg}</b>`:null,it.recent?`последние 6м: <b>${it.recent}</b>`:null,it.base?`всего побед: <b>${it.base}</b>`:null].filter(Boolean).join(' · ');
-    const tag=i===0?`<span class="chip" style="border-color:rgba(102,224,163,.5)">прогноз победителя</span>`:'';
-    const d=document.createElement('div');d.className='item';
-    d.innerHTML=`<b>${i+1}. ${escapeHTML(it.company)}</b> (ИНН: ${escapeHTML(it.inn)}) ${tag}<br><span class="muted">Почему в топе: ${why||'сильный общий трек-рекорд'}</span><br><span class="muted">Контакты: ${escapeHTML(it.email||'—')} · ${escapeHTML(it.dmr||'—')} · ${escapeHTML(it.phone||'—')}</span>`;
-    out.appendChild(d);
+    const tag = i===0 ? `<span class="chip" style="border-color:rgba(102,224,163,.5)">прогноз победителя</span>` : '';
+    const why = law ? `Побед в ${law}: ${it.winsLaw}, всего: ${it.wins}` : `Всего побед: ${it.wins}`;
+    const div=document.createElement('div'); div.className='item';
+    div.innerHTML=`<b>${i+1}. ${escapeHTML(it.company)}</b> (ИНН: ${escapeHTML(it.inn)}) ${tag}<br>
+                   <span class="muted">${escapeHTML(why)}</span><br>
+                   <span class="hint">Контакты: ${escapeHTML(it.email)} · ${escapeHTML(it.dmr)} · ${escapeHTML(it.phone)}</span>`;
+    out.appendChild(div);
   });
 };
-$('#clearPred').onclick=()=>{$('#tenderUrl').value='';$('#outPredict').innerHTML='';$('#factsBox').innerHTML=''}
+$('#clearPred').onclick=()=>{ $('#tenderUrl').value=''; $('#outPredict').innerHTML=''; };
+$('#clearBrowse').onclick=()=>{ $('#fltReg').value=''; $('#fltLaw').value=''; $('#outBrowse').innerHTML=''; };
 
 /* ===== Browse ===== */
 $('#browseBtn').onclick=()=>{
-  if(!store.rows.length){log('Сначала загрузите CSV.','err');return}
-  const fltReg=$('#fltReg').value.trim().toLowerCase();const fltLaw=$('#fltLaw').value.trim().toUpperCase();
-  let data=store.rows.slice();if(fltReg)data=data.filter(r=>(r.reg_number||'').toLowerCase().includes(fltReg));if(fltLaw)data=data.filter(r=>(r.law||'').toUpperCase().includes(fltLaw));
-  const out=$('#outBrowse');out.innerHTML='';if(!data.length){out.innerHTML='<div class="item muted">Пусто по фильтрам.</div>';return}
-  data.slice(0,200).forEach((r,i)=>{const d=document.createElement('div');d.className='item';
-    d.innerHTML=`<b>${i+1}. Закупка ${escapeHTML(r.reg_number||'—')} (${escapeHTML((r.law||'').toUpperCase()||'—')})</b><br>Победитель: <b>${escapeHTML(r.company||'—')}</b> (ИНН: ${escapeHTML(r.inn||'—')})<br><span class="muted">Контакты: ${escapeHTML(r.winner_email||'—')} · ${escapeHTML(r.dmr_name||'—')} · ${escapeHTML(r.dmr_phone||'—')}</span>`;
-    out.appendChild(d)});
+  if(!store.rows.length){ log('Сначала загрузите CSV.', 'err'); return; }
+  const fltReg=$('#fltReg').value.trim().toLowerCase();
+  const fltLaw=$('#fltLaw').value.trim().toUpperCase();
+  let data=store.rows.slice();
+  if(fltReg) data=data.filter(r=>(r.reg_number||'').toLowerCase().includes(fltReg));
+  if(fltLaw) data=data.filter(r=>(r.law||'').toUpperCase().includes(fltLaw));
+  const out=$('#outBrowse'); out.innerHTML='';
+  if(!data.length){ out.innerHTML='<div class="item muted">Ничего не найдено под фильтры.</div>'; return; }
+  data.slice(0,200).forEach((r,i)=>{
+    const div=document.createElement('div'); div.className='item';
+    div.innerHTML=`<b>${i+1}. Закупка ${escapeHTML(r.reg_number||'—')} (${escapeHTML((r.law||'').toUpperCase()||'—')})</b><br>
+                   Победитель: <b>${escapeHTML(r.company||'—')}</b> (ИНН: ${escapeHTML(r.inn||'—')})<br>
+                   <span class="hint">Контакты: ${escapeHTML(r.winner_email||'—')} · ${escapeHTML(r.dmr_name||'—')} · ${escapeHTML(r.dmr_phone||'—')}</span>`;
+    out.appendChild(div);
+  });
 };
-$('#clearBrowse').onclick=()=>{$('#fltReg').value='';$('#fltLaw').value='';$('#outBrowse').innerHTML=''}
-
-/* ===== авто-инициализация ===== */
-(function init(){
-  if(localStorage.getItem(LS_ADMIN)==='1')sessionStorage.setItem(SS_ADMIN,'1');
-  if(load()){updateModelInfo();log('Модель и индексы восстановлены из памяти.','ok')}
-})();
 </script>
 </body>
 </html>
