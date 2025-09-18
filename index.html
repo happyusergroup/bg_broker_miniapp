@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>BG Broker — мини-аппа</title>
 <link rel="icon" href="data:,">
+<meta name="theme-color" content="#0b0f17"/>
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
 <style>
@@ -22,6 +23,8 @@
     --shadow: 0 10px 30px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.05);
     --pad:16px;
     --w:980px;
+    /* ключ: фон берём из темы Telegram (fallback — наш тёмный) */
+    --tg-bg: var(--tg-theme-bg-color, #0b0f17);
   }
   @media (prefers-color-scheme: light){
     :root{
@@ -33,38 +36,43 @@
       --accent:#14a86c;
       --accent-2:#2d6bff;
       --shadow: 0 12px 24px rgba(10,30,60,.08);
+      --tg-bg: var(--tg-theme-bg-color, #eef2f7);
     }
   }
 
-  /* === edge-to-edge: одинаковый фон у корня и тела === */
-  html{height:100%; background:#0b0f17}
+  /* edge-to-edge */
+  html{height:100%; background: var(--tg-bg);}
   body{
-    height:100%;
     margin:0; color:var(--text);
+    background: var(--tg-bg);                /* однотонный слой под шапкой Telegram */
+    background-attachment: fixed;
+    min-height: 100dvh;
+    padding-top: max(env(safe-area-inset-top), 0px);
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
+    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
+    letter-spacing:.1px;
+  }
+  /* наш красивый градиент — второй слой, начинается сразу под шапкой */
+  body::before{
+    content:""; position:fixed; inset: calc(env(safe-area-inset-top) + 0px) 0 0 0;
+    pointer-events:none; z-index:-1;
     background:
       radial-gradient(1200px 800px at 10% -10%, #1d2540 0%, transparent 60%),
       radial-gradient(1000px 700px at 110% 0%, #163240 0%, transparent 55%),
       linear-gradient(180deg,var(--bg2),var(--bg));
-    font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
-    letter-spacing:.1px;
-    min-height:100dvh;                     /* полноэкранно на iOS */
-    padding-top: max(env(safe-area-inset-top), 0px);
-    padding-bottom: max(env(safe-area-inset-bottom), 0px);
-    background-attachment: fixed;          /* предотвращает «просвет» при скролле */
   }
+
   .wrap{max-width:var(--w); margin:0 auto; padding:18px clamp(14px,3vw,22px)}
   header{
     position:sticky; top:0; z-index:3;
     backdrop-filter:saturate(140%) blur(10px);
-    background: linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02));
+    background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02));
     border-bottom:1px solid var(--stroke);
   }
   .brand{display:flex;align-items:center;gap:10px}
-  .logo{
-    width:34px;height:34px;border-radius:10px;
-    background: radial-gradient(120% 120% at 20% 20%, var(--accent) 0%, var(--accent-2) 90%);
-    box-shadow: 0 8px 16px rgba(100,200,255,.18);
-  }
+  .logo{width:34px;height:34px;border-radius:10px;
+        background: radial-gradient(120% 120% at 20% 20%, var(--accent) 0%, var(--accent-2) 90%);
+        box-shadow: 0 8px 16px rgba(100,200,255,.18);}
   h1{margin:0;font-size:18px}
   .sub{color:var(--muted);font-size:13px;margin-top:2px}
   .tabs{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
@@ -118,9 +126,9 @@
     transition:border-color .2s ease, background .2s ease;
   }
   .drop.drag{border-color:var(--accent); background:rgba(102,224,163,.08)}
-  footer{margin:26px 0 12px;text-align:center;color:var(--muted);font-size:12px}
+  footer{margin:26px 0 12px;text-align:center;color:#9aa3b9;font-size:12px}
 
-  /* modal */
+  /* Modal */
   .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50;
          backdrop-filter: blur(6px) saturate(140%); background:rgba(0,0,0,.35)}
   .modal .box{width:min(92vw,420px); background:var(--card); border:1px solid var(--stroke); border-radius:16px; padding:18px; box-shadow:var(--shadow)}
@@ -225,9 +233,11 @@
     </div>
   </main>
 
-  <footer>BG Broker · быстрый ориентировочный прогноз. Для финального решения — экспертиза банка и ЕИС API.</footer>
+  <footer>
+    BG Broker · быстрый ориентировочный прогноз. Для финального решения — экспертиза банка и ЕИС API.
+  </footer>
 
-  <!-- Пароль -->
+  <!-- Пароль на «Админ» -->
   <div id="pwdModal" class="modal" aria-hidden="true">
     <div class="box">
       <h3 style="margin:0 0 6px">Доступ к разделу «Админ»</h3>
@@ -242,12 +252,23 @@
   </div>
 
 <script>
-/* Telegram: бесшовный верх */
+/* Telegram edge-to-edge */
 try {
   Telegram.WebApp.ready();
   Telegram.WebApp.expand();
-  Telegram.WebApp.setHeaderColor('#0b0f17');      // цвет шапки Telegram = фон приложения
-  Telegram.WebApp.setBackgroundColor('#0b0f17');  // цвет под WebView (устраняет «щель»)
+  Telegram.WebApp.setHeaderColor('bg_color');
+  Telegram.WebApp.setBackgroundColor('bg_color');
+
+  const applyTheme = () => {
+    const bg = getComputedStyle(document.documentElement)
+                 .getPropertyValue('--tg-theme-bg-color') || '#0b0f17';
+    let m = document.querySelector('meta[name="theme-color"]');
+    if(!m){ m = document.createElement('meta'); m.name='theme-color'; document.head.appendChild(m); }
+    m.content = bg.trim();
+    document.documentElement.style.background = bg.trim();
+  };
+  Telegram.WebApp.onEvent('themeChanged', applyTheme);
+  applyTheme();
 } catch(e) {}
 
 /* ===== Helpers ===== */
@@ -352,15 +373,11 @@ document.querySelectorAll('.tab').forEach(t=>{
   }
 });
 
-/* ===== CSV import — iPhone-safe + резервные методы ===== */
+/* ===== CSV import — безопасно для iPhone ===== */
 async function parseCsvText(text,{useWorker=true}={}){
   return new Promise((resolve,reject)=>{
-    Papa.parse(text,{
-      header:false, skipEmptyLines:"greedy",
-      worker: useWorker,
-      complete: r=>resolve(toRows(r)),
-      error: e=>reject(e)
-    });
+    Papa.parse(text,{ header:false, skipEmptyLines:"greedy", worker: useWorker,
+      complete: r=>resolve(toRows(r)), error: e=>reject(e) });
   });
 }
 $('#csv').addEventListener('change', async e=>{
@@ -368,7 +385,7 @@ $('#csv').addEventListener('change', async e=>{
   try{
     const text = await f.text();
     const rows = await parseCsvText(text,{useWorker:!IS_IOS});
-    if(!rows.length){ log('CSV разобран, но записей нет. Убедитесь, что сохранён как «CSV UTF-8».', 'err'); return; }
+    if(!rows.length){ log('CSV разобран, но записей нет. Сохраните как «CSV UTF-8».', 'err'); return; }
     store.rows = rows; store.model = trainModel(rows); store.version='csv-'+Date.now();
     saveLocal(); updateModelInfo(); log(`CSV загружен: ${rows.length} записей.`, 'ok');
   }catch(err){ log('Ошибка загрузки CSV: '+(err?.message||err), 'err'); }
@@ -384,7 +401,8 @@ $('#parseText').onclick = async ()=>{
   }catch(err){ log('Ошибка парсинга текста: '+(err?.message||err), 'err'); }
 };
 $('#clearText').onclick = ()=> $('#csvText').value = '';
-/* Drag&drop */
+
+/* Drag & drop (desktop) */
 const drop=$('#drop');
 ['dragenter','dragover'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.add('drag') }));
 ['dragleave','drop'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.remove('drag') }));
