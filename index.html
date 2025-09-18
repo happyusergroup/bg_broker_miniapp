@@ -36,15 +36,21 @@
     }
   }
 
-  html,body{height:100%}
+  /* ==== базовая разметка, fullscreen-safe ==== */
+  html,body{height:100%; margin:0}
   body{
-    margin:0; color:var(--text);
-    background: radial-gradient(1200px 800px at 10% -10%, #1d2540 0%, transparent 60%),
-                radial-gradient(1000px 700px at 110% 0%, #163240 0%, transparent 55%),
-                linear-gradient(180deg,var(--bg2),var(--bg));
+    color:var(--text);
+    background:
+      radial-gradient(1200px 800px at 10% -10%, #1d2540 0%, transparent 60%),
+      radial-gradient(1000px 700px at 110% 0%, #163240 0%, transparent 55%),
+      linear-gradient(180deg,var(--bg2),var(--bg));
     font: 15px/1.55 ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Arial;
     letter-spacing:.1px;
+    min-height:100dvh; /* edge-to-edge, iOS */
+    padding-top: max(env(safe-area-inset-top), 0px);
+    padding-bottom: max(env(safe-area-inset-bottom), 0px);
   }
+
   .wrap{max-width:var(--w); margin:0 auto; padding:18px clamp(14px,3vw,22px)}
   header{
     position:sticky; top:0; z-index:3;
@@ -112,14 +118,56 @@
   }
   .drop.drag{border-color:var(--accent); background:rgba(102,224,163,.08)}
   footer{margin:26px 0 12px;text-align:center;color:var(--muted);font-size:12px}
-  /* Modal */
-  .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; z-index:50;
-         backdrop-filter: blur(6px) saturate(140%); background:rgba(0,0,0,.35)}
-  .modal .box{width:min(92vw,420px); background:var(--card); border:1px solid var(--stroke); border-radius:16px; padding:18px; box-shadow:var(--shadow)}
+
+  /* ==== Onboarding (как у Blum): полноэкранный оверлей ==== */
+  .ob{
+    position:fixed; inset:0; z-index:9999;
+    background: #000; color:#fff;
+    display:none; flex-direction:column; justify-content:space-between; align-items:center;
+    padding: max(env(safe-area-inset-top),16px) 16px max(env(safe-area-inset-bottom),16px);
+    min-height:100dvh;
+  }
+  .ob.show{display:flex}
+  .ob-canvas{flex:1; width:100%; display:flex; align-items:center; justify-content:center; position:relative}
+  .ob-title{width:100%; max-width:720px; margin:0 auto; text-align:left; padding:0 8px 8px}
+  .ob-title h2{font-size:34px; line-height:1.15; margin:0 0 6px}
+  .ob-title p{margin:0; color:#b7b7b7; font-size:16px}
+  .ob-btn{width:min(640px,92vw); height:54px; border-radius:14px; border:0; font-weight:800; background:#fff; color:#000; }
+  .ob-progress{position:absolute; top:0; left:0; right:0; height:4px; display:flex; gap:6px; padding: 0 16px}
+  .ob-bar{flex:1; border-radius:999px; background:#2a2a2a; overflow:hidden}
+  .ob-bar>i{display:block; height:100%; width:0; background:#fff; border-radius:999px; transition:width .25s ease}
+  .ob-emoji{font-size:110px; filter: drop-shadow(0 0 24px rgba(255,160,0,.45))}
+  @media (min-width:600px){ .ob-title h2{font-size:40px} .ob-emoji{font-size:140px} }
 </style>
 </head>
 <body>
-  <header>
+  <!-- Onboarding fullscreen -->
+  <div id="ob" class="ob" aria-hidden="true">
+    <div class="ob-progress">
+      <div class="ob-bar"><i id="obp1"></i></div>
+      <div class="ob-bar"><i id="obp2"></i></div>
+      <div class="ob-bar"><i id="obp3"></i></div>
+    </div>
+    <div class="ob-canvas">
+      <div id="obSlide1" class="ob-slide" style="text-align:center">
+        <div class="ob-emoji">🔥</div>
+      </div>
+      <div id="obSlide2" class="ob-slide" style="display:none;text-align:center">
+        <div class="ob-emoji">📈</div>
+      </div>
+      <div id="obSlide3" class="ob-slide" style="display:none;text-align:center">
+        <div class="ob-emoji">🤖</div>
+      </div>
+    </div>
+    <div class="ob-title">
+      <h2 id="obTitle">Покупай и продавай… шутка 🙂</h2>
+      <p id="obDesc">Это BG Broker — мини-аппа. Прогноз участников/победителя, контакты компаний и быстрый план действий.</p>
+    </div>
+    <button id="obBtn" class="ob-btn">Далее</button>
+  </div>
+
+  <!-- App header -->
+  <header id="appHeader">
     <div class="wrap">
       <div class="brand">
         <div class="logo"></div>
@@ -136,6 +184,7 @@
     </div>
   </header>
 
+  <!-- App main -->
   <main class="wrap">
     <div class="grid">
       <!-- Закупка -->
@@ -219,9 +268,9 @@
 
   <footer>BG Broker · быстрый ориентировочный прогноз. Для финального решения — экспертиза банка и ЕИС API.</footer>
 
-  <!-- Пароль -->
-  <div id="pwdModal" class="modal" aria-hidden="true">
-    <div class="box">
+  <!-- Пароль к «Админ» -->
+  <div id="pwdModal" class="modal" aria-hidden="true" style="display:none;align-items:center;justify-content:center;backdrop-filter: blur(6px) saturate(140%); background:rgba(0,0,0,.35)">
+    <div class="box" style="width:min(92vw,420px); background:var(--card); border:1px solid var(--stroke); border-radius:16px; padding:18px; box-shadow:var(--shadow)">
       <h3 style="margin:0 0 6px">Доступ к разделу «Админ»</h3>
       <div class="muted" style="margin-bottom:8px">Введите пароль (подсказка: <b>admin</b>)</div>
       <input id="pwdInput" type="password" placeholder="Пароль"/>
@@ -234,10 +283,62 @@
   </div>
 
 <script>
-/* Init Telegram */
-try { Telegram.WebApp.ready(); Telegram.WebApp.expand(); } catch(e) {}
+/* ===== Telegram edge-to-edge ===== */
+try {
+  Telegram.WebApp.ready();
+  Telegram.WebApp.expand();
+  Telegram.WebApp.setBackgroundColor('#000000'); // под онбординг
+  Telegram.WebApp.setHeaderColor('secondary_bg_color');
+} catch(e) {}
 
-/* ===== Helpers ===== */
+/* ===== Onboarding ===== */
+const OB_SEEN_KEY = 'bg_ob_seen_v1';
+const ob = document.getElementById('ob');
+const appHeader = document.getElementById('appHeader');
+
+function showOnboarding(){
+  ob.classList.add('show');
+  appHeader.style.visibility='hidden'; // как в Blum — «под приложением»
+  setProgress(1);
+}
+function hideOnboarding(){
+  ob.classList.remove('show');
+  appHeader.style.visibility='visible';
+  try { Telegram.WebApp.setBackgroundColor(''); } catch(e){}
+}
+function setProgress(step){
+  document.getElementById('obp1').style.width = step>=1 ? '100%' : '0';
+  document.getElementById('obp2').style.width = step>=2 ? '100%' : '0';
+  document.getElementById('obp3').style.width = step>=3 ? '100%' : '0';
+}
+(function initOB(){
+  if(localStorage.getItem(OB_SEEN_KEY)==='1'){ hideOnboarding(); return; }
+  showOnboarding();
+  let step=1;
+  const title = document.getElementById('obTitle');
+  const desc  = document.getElementById('obDesc');
+  const s1 = document.getElementById('obSlide1');
+  const s2 = document.getElementById('obSlide2');
+  const s3 = document.getElementById('obSlide3');
+  const btn = document.getElementById('obBtn');
+
+  function render(){
+    s1.style.display = step===1?'block':'none';
+    s2.style.display = step===2?'block':'none';
+    s3.style.display = step===3?'block':'none';
+    setProgress(step);
+    if(step===1){ title.textContent='Прогноз по закупке за 5 секунд'; desc.textContent='Вставьте ссылку из ЕИС — получайте топ кандидатов и пояснение «почему».'; btn.textContent='Далее'; }
+    if(step===2){ title.textContent='Контакты компаний — легально'; desc.textContent='Тянем только публичные корпоративные контакты (ЕГРЮЛ, Rusprofile, сайты).'; btn.textContent='Далее'; }
+    if(step===3){ title.textContent='Админка и обучение модели'; desc.textContent='Загрузите CSV с историей — прогноз станет точнее. Пароль «admin».'; btn.textContent='Начать'; }
+  }
+  btn.addEventListener('click',()=>{
+    if(step<3){ step++; render(); }
+    else { localStorage.setItem(OB_SEEN_KEY,'1'); hideOnboarding(); }
+  });
+  render();
+})();
+
+/* ===== Helpers & State (как в MVP Beta 1) ===== */
 const IS_IOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 const LS_KEY='bg_miniapp_store_v1', LS_ADMIN='bg_admin_persist', SS_ADMIN='bg_admin_unlocked';
 const $ = (s)=>document.querySelector(s);
@@ -339,29 +440,27 @@ document.querySelectorAll('.tab').forEach(t=>{
   }
 });
 
-/* ===== CSV import — iPhone-safe + резервные методы ===== */
+/* ===== CSV import (iPhone-safe) ===== */
 async function parseCsvText(text,{useWorker=true}={}){
   return new Promise((resolve,reject)=>{
     Papa.parse(text,{
       header:false, skipEmptyLines:"greedy",
-      worker: useWorker,         // iOS: false
+      worker: useWorker,
       complete: r=>resolve(toRows(r)),
       error: e=>reject(e)
     });
   });
 }
-// File input
 $('#csv').addEventListener('change', async e=>{
   const f=e.target.files[0]; if(!f) return;
   try{
-    const text = IS_IOS ? await f.text() : await f.text(); // iOS и прочее — одинаково, но ниже worker зависит от платформы
+    const text = await f.text();
     const rows = await parseCsvText(text,{useWorker:!IS_IOS});
     if(!rows.length){ log('CSV разобран, но записей нет. Убедитесь, что сохранён как «CSV UTF-8».', 'err'); return; }
     store.rows = rows; store.model = trainModel(rows); store.version='csv-'+Date.now();
     saveLocal(); updateModelInfo(); log(`CSV загружен: ${rows.length} записей.`, 'ok');
   }catch(err){ log('Ошибка загрузки CSV: '+(err?.message||err), 'err'); }
 });
-// Paste textarea
 $('#parseText').onclick = async ()=>{
   const text = $('#csvText').value.trim();
   if(!text){ log('Поле с CSV пустое.', 'err'); return; }
@@ -373,13 +472,12 @@ $('#parseText').onclick = async ()=>{
   }catch(err){ log('Ошибка парсинга текста: '+(err?.message||err), 'err'); }
 };
 $('#clearText').onclick = ()=> $('#csvText').value = '';
-// Drag&drop (desktop)
 const drop=$('#drop');
 ['dragenter','dragover'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.add('drag') }));
 ['dragleave','drop'].forEach(ev=> drop.addEventListener(ev, e=>{ e.preventDefault(); drop.classList.remove('drag') }));
 drop.addEventListener('drop', async e=>{
   const file = e.dataTransfer.files?.[0]; if(!file) return;
-  $('#csv').files = e.dataTransfer.files; // чтобы пользователь видел выбранный файл
+  $('#csv').files = e.dataTransfer.files;
   try{
     const text = await file.text();
     const rows = await parseCsvText(text,{useWorker:true});
@@ -437,7 +535,7 @@ $('#importFile').addEventListener('change', async e=>{
   }catch(err){ log('Ошибка импорта JSON: '+(err?.message||err), 'err'); }
 });
 
-/* ===== Analyze ===== */
+/* ===== Analyze / Browse ===== */
 $('#analyze').onclick=()=>{
   const url=$('#tenderUrl').value.trim();
   if(!url){ log('Вставьте ссылку на закупку.', 'err'); return; }
@@ -460,7 +558,7 @@ $('#analyze').onclick=()=>{
 
   items.forEach((it,i)=>{
     const tag = i===0 ? `<span class="chip" style="border-color:rgba(102,224,163,.5)">прогноз победителя</span>` : '';
-    const why = law ? `Побед в ${law}: ${it.winsLaw}, всего: ${it.wins}` : `Всего побед: ${it.wins}`;
+    const why = law ? `Побед в ${it.winsLaw ? law : law}: ${it.winsLaw}, всего: ${it.wins}` : `Всего побед: ${it.wins}`;
     const div=document.createElement('div'); div.className='item';
     div.innerHTML=`<b>${i+1}. ${escapeHTML(it.company)}</b> (ИНН: ${escapeHTML(it.inn)}) ${tag}<br>
                    <span class="muted">${escapeHTML(why)}</span><br>
@@ -469,9 +567,7 @@ $('#analyze').onclick=()=>{
   });
 };
 $('#clearPred').onclick=()=>{ $('#tenderUrl').value=''; $('#outPredict').innerHTML=''; };
-$('#clearBrowse').onclick=()=>{ $('#fltReg').value=''; $('#fltLaw').value=''; $('#outBrowse').innerHTML=''; };
 
-/* ===== Browse ===== */
 $('#browseBtn').onclick=()=>{
   if(!store.rows.length){ log('Сначала загрузите CSV.', 'err'); return; }
   const fltReg=$('#fltReg').value.trim().toLowerCase();
@@ -489,6 +585,7 @@ $('#browseBtn').onclick=()=>{
     out.appendChild(div);
   });
 };
+$('#clearBrowse').onclick=()=>{ $('#fltReg').value=''; $('#fltLaw').value=''; $('#outBrowse').innerHTML=''; };
 </script>
 </body>
 </html>
